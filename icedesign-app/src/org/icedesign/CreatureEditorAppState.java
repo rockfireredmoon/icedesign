@@ -566,13 +566,14 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 				if (posePanel.isForceLoop())
 					request.setLoop(true);
 
-				if (previewEntity != null) {
-					AnimationHandler<?, ?> control = previewEntity.getSpatial().getControl(AnimationHandler.class);
-					control.play(request);
-				}
-
 				if (syncWithSelection.getIsChecked()) {
 					fireAnimationSequence(request);
+				}
+				else {
+					if (previewEntity != null) {
+						AnimationHandler<?, ?> control = previewEntity.getSpatial().getControl(AnimationHandler.class);
+						control.play(request);
+					}	
 				}
 			}
 
