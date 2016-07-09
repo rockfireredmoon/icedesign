@@ -145,9 +145,7 @@ public abstract class AbstractTextureEditorPanel<T> extends Container {
 			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
 				File folder = assets.getExternalAssetFile(getDirectoryPath());
 				try {
-					if (!folder.exists() && !folder.mkdirs()) {
-						throw new IOException("Failed to create folder.");
-					}
+					Icelib.makeDir(folder);
 					XDesktop.getDesktop().open(folder);
 				} catch (Exception ex) {
 					LOG.log(Level.SEVERE, String.format("Failed to open folder %s", folder), ex);
@@ -330,8 +328,8 @@ public abstract class AbstractTextureEditorPanel<T> extends Container {
 			FancyButton save = new FancyButton(screen) {
 				@Override
 				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-					File extF = assets.getExternalAssetFile(colorMapPath);
 					try {
+						File extF = Icelib.makeParent(assets.getExternalAssetFile(colorMapPath));
 						OutputStream out = new FileOutputStream(extF);
 						try {
 							editingColorMap.write(out, false);
