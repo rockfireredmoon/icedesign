@@ -84,6 +84,7 @@ Section "Icedesign" Icedesign
   File icedesignsmall.ico
   File icedesignbanner.bmp
   File Readme.txt
+  File ..\..\..\src\main\installers\configuration\logging.properties
   
   ;Store installation folder
   WriteRegStr HKCU "Software\Icedesign" "" $INSTDIR
