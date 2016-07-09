@@ -130,7 +130,7 @@
 							<mapper>
 								<type>perm</type>
 								<strip>1</strip>
-								<prefix>/etc/iceterrain</prefix>
+								<prefix>/etc/icedesign</prefix>
 								<user>root</user>
 								<group>root</group>
 								<filemode>755</filemode>
