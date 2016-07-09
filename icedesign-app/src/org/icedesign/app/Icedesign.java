@@ -51,7 +51,7 @@ public class Icedesign extends IcesceneApp implements ActionListener {
 			throw new Exception("No URL supplied.");
 		}
 		Icedesign app = new Icedesign(cmdLine);
-		startApp(app, cmdLine, "PlanetForever - " + AppInfo.getName() + " - " + AppInfo.getVersion(),
+		startApp(app, cmdLine, AppInfo.getName() + " - " + AppInfo.getVersion(),
 				DesignConstants.APPSETTINGS_NAME);
 	}
 
