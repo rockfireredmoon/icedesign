@@ -8,7 +8,7 @@ import org.icelib.Region;
 import org.icescene.assets.Assets;
 
 import icetone.controls.text.Label;
-import icetone.core.ElementManager;
+import icetone.core.BaseScreen;
 import icetone.core.layout.mig.MigLayout;
 
 public class ClothingTextureEditorPanel extends AbstractTextureEditorPanel<ClothingTemplate> {
@@ -20,23 +20,23 @@ public class ClothingTextureEditorPanel extends AbstractTextureEditorPanel<Cloth
 	private final Label part;
 	private Region region;
 
-	public ClothingTextureEditorPanel(Assets assets, ElementManager screen, Preferences pref) {
+	public ClothingTextureEditorPanel(Assets assets, BaseScreen screen, Preferences pref) {
 		super(assets, screen, pref);
 
 		setLayoutManager(new MigLayout(screen, "wrap 2, fill", "[shrink 0][fill, grow]", "[][][][][][shrink 200,fill,grow][]"));
-		addChild(new Label("Type:", screen));
-		addChild(type = new Label(screen));
-		addChild(new Label("Region:", screen));
-		addChild(regionText = new Label(screen));
-		addChild(new Label("Body Type:", screen));
-		addChild(bodyType = new Label(screen));
-		addChild(new Label("Part:", screen));
-		addChild(part = new Label(screen));
-		addChild(new Label("Region Priority:", screen));
-		addChild(regionPriority = new Label(screen));
-		addChild(table, "growx, span 2");
+		addElement(new Label("Type:", screen));
+		addElement(type = new Label(screen));
+		addElement(new Label("Region:", screen));
+		addElement(regionText = new Label(screen));
+		addElement(new Label("Body Type:", screen));
+		addElement(bodyType = new Label(screen));
+		addElement(new Label("Part:", screen));
+		addElement(part = new Label(screen));
+		addElement(new Label("Region Priority:", screen));
+		addElement(regionPriority = new Label(screen));
+		addElement(table, "growx, span 2");
 
-		addChild(actions, "growx, span 2");
+		addElement(actions, "growx, span 2");
 
 		setAvailable();
 	}

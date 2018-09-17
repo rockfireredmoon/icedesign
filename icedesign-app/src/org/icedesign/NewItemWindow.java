@@ -23,40 +23,38 @@ import org.icescene.HUDMessageAppState;
 import org.icescene.ServiceRef;
 import org.icescene.configuration.attachments.AttachableDef;
 import org.icescene.configuration.attachments.AttachableTemplates;
-import org.iceui.controls.AutocompleteTextField;
-import org.iceui.controls.AutocompleteTextField.AutocompleteItem;
-import org.iceui.controls.CancelButton;
 import org.iceui.controls.ElementStyle;
-import org.iceui.controls.FancyButtonWindow;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.UIUtil;
 
 import com.jme3.asset.AssetInfo;
 import com.jme3.asset.AssetKey;
 import com.jme3.asset.AssetNotFoundException;
 import com.jme3.font.LineWrapMode;
-import com.jme3.input.event.KeyInputEvent;
 import com.jme3.input.event.MouseButtonEvent;
-import com.jme3.math.Vector2f;
 
 import icetone.controls.buttons.CheckBox;
+import icetone.controls.buttons.PushButton;
 import icetone.controls.lists.ComboBox;
 import icetone.controls.menuing.MenuItem;
+import icetone.controls.text.AutocompleteItem;
+import icetone.controls.text.AutocompleteSource;
+import icetone.controls.text.AutocompleteTextField;
 import icetone.controls.text.Label;
 import icetone.controls.text.TextField;
+import icetone.core.BaseElement;
+import icetone.core.BaseScreen;
 import icetone.core.Element;
-import icetone.core.ElementManager;
-import icetone.core.layout.LUtil;
+import icetone.core.ToolKit;
+import icetone.core.layout.ScreenLayoutConstraints;
 import icetone.core.layout.mig.MigLayout;
-import icetone.core.utils.UIDUtil;
+import icetone.extras.windows.ButtonWindow;
 
-public class NewItemWindow extends FancyButtonWindow<Element> {
+public class NewItemWindow extends ButtonWindow<Element> {
 
 	private static final Logger LOG = Logger.getLogger(NewItemWindow.class.getName());
 
 	// protected ComboBox<AttachmentPoint> attachmentPoint;
 	protected TextField item;
-	private CancelButton btnCancel;
+	private PushButton btnCancel;
 	private CheckBox openFolder;
 	protected AutocompleteTextField<String> name;
 	protected ComboBox<AttachableTemplate> template;
@@ -69,31 +67,28 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 	@ServiceRef
 	protected static AttachableDef attachableDef;
 
-	public NewItemWindow(ElementManager screen) {
-		super(screen, UIDUtil.getUID(), Vector2f.ZERO, LUtil.LAYOUT_SIZE, FancyWindow.Size.SMALL, true);
+	public NewItemWindow(BaseScreen screen) {
+		super(screen, true);
 
-		ElementStyle.normal(screen, getDragBar(), true, false);
+		ElementStyle.normal(getDragBar(), true, false);
 		getDragBar().setTextWrap(LineWrapMode.Word);
 		setDestroyOnHide(true);
-		getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
-		sizeToContent();
-		setWidth(330);
-		setIsResizable(false);
-		setIsMovable(false);
+		ElementStyle.warningColor(getDragBar());
+		setResizable(false);
+		setMovable(false);
 		setWindowTitle("New Item");
 		setButtonOkText("Create");
-		UIUtil.center(screen, this);
-		screen.addElement(this, null, true);
-		showAsModal(true);
+		setModal(true);
+		screen.showElement(this, ScreenLayoutConstraints.center);
 	}
 
 	public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-		hideWindow();
+		hide();
 	}
 
 	@Override
 	public void onButtonOkPressed(MouseButtonEvent evt, boolean toggled) {
-		HUDMessageAppState hud = app.getStateManager().getState(HUDMessageAppState.class);
+		HUDMessageAppState hud = ToolKit.get().getApplication().getStateManager().getState(HUDMessageAppState.class);
 
 		// Create the key for the new item
 		EntityKey newKey = new EntityKey();
@@ -101,8 +96,10 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 		newKey.setItem(name.getText());
 		newKey.setTemplate(item.getText());
 
-		/* Create and add the new item to the list we are going to write. Also give sub-classes
-		 * a chance to hook in and configure  this item (e.g. cloning)
+		/*
+		 * Create and add the new item to the list we are going to write. Also
+		 * give sub-classes a chance to hook in and configure this item (e.g.
+		 * cloning)
 		 */
 		AttachableTemplate newItem = createItem(newKey);
 		newItem.setDelegate(template.getSelectedListItem().getValue());
@@ -112,13 +109,13 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 			hud.message(Level.SEVERE, String.format("%s already exists.", newKey.getName()));
 		} else {
 			try {
-				ItemWriter itemWriter = new ItemWriter(app, newKey);
+				ItemWriter itemWriter = new ItemWriter(ToolKit.get().getApplication(), newKey);
 				itemWriter.addNewAttachable(newItem);
 				itemWriter.write();
 
 				// Create item file
 				try {
-					if (openFolder.getIsChecked()) {
+					if (openFolder.isChecked()) {
 						XDesktop.getDesktop().open(itemWriter.getItemDir());
 					}
 					onCreate(newItem, itemWriter.getAssetsDir());
@@ -128,7 +125,7 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 				}
 
 				//
-				hideWindow();
+				hide();
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
@@ -169,7 +166,7 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 	}
 
 	protected void onCreate(AttachableTemplate newDef, File assetsDir) throws IOException {
-		HUDMessageAppState hud = app.getStateManager().getState(HUDMessageAppState.class);
+		HUDMessageAppState hud = ToolKit.get().getApplication().getStateManager().getState(HUDMessageAppState.class);
 		hud.message(Level.INFO, String.format("Created %s.", name.getText()));
 	}
 
@@ -178,46 +175,37 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 		Element contentArea = new Element(screen);
 		contentArea.setLayoutManager(new MigLayout(screen, "wrap 2", "[shrink 0][fill, grow]", "[][][][][]"));
 
-		// Template Type
-		contentArea.addChild(new Label("Template Type", screen));
-		contentArea.addChild(templateType = new ComboBox<EntityKey.Type>(screen, EntityKey.Type.values()) {
-			@Override
-			public void onChange(int selectedIndex, EntityKey.Type value) {
-				rebuildTemplates();
-				reselectAttachmentPoint();
-			}
-		});
-
 		// NOTE, only one template type is actually used currently
-		templateType.setSelectedByValue(EntityKey.Type.ITEM, false);
-		templateType.setIsEnabled(false);
+		templateType = new ComboBox<EntityKey.Type>(screen, EntityKey.Type.values());
+		templateType.setSelectedByValue(EntityKey.Type.ITEM);
+		templateType.onChange(evt -> {
+			rebuildTemplates();
+			reselectAttachmentPoint();
+		});
+		templateType.setEnabled(false);
+
+		// Template Type
+		contentArea.addElement(new Label("Template Type", screen));
+		contentArea.addElement(templateType);
 
 		// Type
-		contentArea.addChild(new Label("Type", screen));
-		contentArea.addChild(type = new ComboBox<EntityKey.Type>(screen, EntityKey.Type.values()) {
-			@Override
-			public void onChange(int selectedIndex, EntityKey.Type value) {
-				rebuildName();
-			}
-		});
+		contentArea.addElement(new Label("Type", screen));
+		contentArea.addElement(
+				type = new ComboBox<EntityKey.Type>(screen, EntityKey.Type.values()).onChange(evt -> rebuildName()));
 
 		// Template
-		contentArea.addChild(new Label("Template", screen));
-		contentArea.addChild(template = new ComboBox<AttachableTemplate>(screen) {
-			@Override
-			public void onChange(int selectedIndex, AttachableTemplate value) {
-				reselectAttachmentPoint();
-			}
-		});
+		contentArea.addElement(new Label("Template", screen));
+		contentArea.addElement(
+				template = new ComboBox<AttachableTemplate>(screen).onChange(evt -> reselectAttachmentPoint()));
 		rebuildTemplates();
 
 		// Name
-		contentArea.addChild(new Label("Name", screen));
-		name = new AutocompleteTextField<String>(screen, new AutocompleteTextField.AutocompleteSource<String>() {
+		contentArea.addElement(new Label("Name", screen));
+		name = new AutocompleteTextField<String>(screen, new AutocompleteSource<String>() {
 			public List<AutocompleteItem<String>> getItems(String text) {
 				text = text.toLowerCase();
 				List<AutocompleteItem<String>> l = new ArrayList<>();
-				attachableDef.loadAll(app.getAssetManager());
+				attachableDef.loadAll(ToolKit.get().getApplication().getAssetManager());
 				for (AttachableTemplate def : attachableDef.values()) {
 					String part = def.getKey().getName();
 					int idx = part.lastIndexOf('-');
@@ -234,16 +222,12 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 			}
 		}) {
 			@Override
-			public void controlKeyPressHook(KeyInputEvent evt, String text) {
-				rebuildName();
-			}
-
-			@Override
 			protected void onChange(String value) {
 				rebuildName();
 			}
 		};
-		contentArea.addChild(name);
+		name.onKeyboardReleased(evt -> rebuildName());
+		contentArea.addElement(name);
 
 		// Attach point
 		// contentArea.addChild(new Label("Attachment point", screen));
@@ -255,25 +239,25 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 		// }
 		// attachmentPoint.pack(false);
 
-		contentArea.addChild(new Label("Item", screen));
-		contentArea.addChild(item = new TextField(screen), "growx");
+		contentArea.addElement(new Label("Item", screen));
+		contentArea.addElement(item = new TextField(screen), "growx");
 
 		// Open folder
 		openFolder = new CheckBox(screen);
 		rebuildName();
 		openFolder.setToolTipText("Open the folder where the files for this item should " + "be placed.");
-		contentArea.addChild(openFolder, "span 2, growx");
+		contentArea.addElement(openFolder, "span 2, growx");
 		return contentArea;
 	}
 
 	protected void rebuildTemplates() {
 		template.removeAllListItems();
-		for (AttachableTemplate p : Icelib.sort(new ArrayList<AttachableTemplate>(attachableTemplatesConfiguration.values()))) {
+		for (AttachableTemplate p : Icelib
+				.sort(new ArrayList<AttachableTemplate>(attachableTemplatesConfiguration.values()))) {
 			if (p.getKey().getType().equals(templateType.getSelectedListItem().getValue())) {
-				template.addListItem(p.getKey().getItem(), p, false, false);
+				template.addListItem(p.getKey().getItem(), p);
 			}
 		}
-		template.pack(false);
 	}
 
 	public void setAttachmentPoint(AttachmentPoint point) {
@@ -281,16 +265,14 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 	}
 
 	@Override
-	public void createButtons(Element buttons) {
+	public void createButtons(BaseElement buttons) {
 		super.createButtons(buttons);
-		btnCancel = new CancelButton(screen, getUID() + ":btnCancel") {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				onButtonCancelPressed(evt, toggled);
-			}
-		};
+		btnCancel = new PushButton(screen, "Cancel") {{
+			setStyleClass("cancel");
+		}};
+		btnCancel.onMouseReleased(evt -> onButtonCancelPressed(evt, true));
 		btnCancel.setText("Cancel");
-		buttons.addChild(btnCancel);
+		buttons.addElement(btnCancel);
 		form.addFormElement(btnCancel);
 		rebuildName();
 	}
@@ -310,15 +292,15 @@ public class NewItemWindow extends FancyButtonWindow<Element> {
 		if (openFolder != null && name != null && btnOk != null) {
 			MenuItem<AttachableTemplate> selectedListItem = template.getSelectedListItem();
 			if (selectedListItem == null) {
-				openFolder.setLabelText("No template selected");
-				btnOk.setIsEnabled(false);
+				openFolder.setText("No template selected");
+				btnOk.setEnabled(false);
 			} else {
 				fullName = Icelib.toEnglish(type.getSelectedListItem().getValue()) + "-" + name.getText();
 				// fullName = ((AttachableTemplate)
 				// selectedListItem.getValue()).getKey().getItemName() + "-" +
 				// name.getText();
-				openFolder.setLabelText(String.format("Open folder '%s'", fullName));
-				btnOk.setIsEnabled(name.getText().length() > 0);
+				openFolder.setText(String.format("Open folder '%s'", fullName));
+				btnOk.setEnabled(name.getText().length() > 0);
 			}
 		}
 	}

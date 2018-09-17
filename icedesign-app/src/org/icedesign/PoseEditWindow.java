@@ -1,75 +1,70 @@
 package org.icedesign;
 
 import java.util.Collection;
-import java.util.logging.Logger;
 
 import org.icelib.AttachmentItem;
 import org.icescene.animation.AnimationSequence;
-import org.iceui.controls.CancelButton;
-import org.iceui.controls.FancyButtonWindow;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.UIUtil;
 
 import com.jme3.input.event.MouseButtonEvent;
-import com.jme3.math.Vector2f;
 
+import icetone.controls.buttons.PushButton;
+import icetone.core.BaseElement;
+import icetone.core.BaseScreen;
 import icetone.core.Element;
-import icetone.core.ElementManager;
+import icetone.core.layout.ScreenLayoutConstraints;
+import icetone.extras.windows.ButtonWindow;
 
-public abstract class PoseEditWindow extends FancyButtonWindow<Element> {
+public abstract class PoseEditWindow extends ButtonWindow<Element> {
 
-    private static final Logger LOG = Logger.getLogger(PoseEditWindow.class.getName());
-    private CancelButton btnCancel;
-    private PoseEditPanel editPanel;
+	private PushButton btnCancel;
+	private PoseEditPanel editPanel;
 
-    public PoseEditWindow(ElementManager screen) {
-        super(screen, new Vector2f(15, 15), FancyWindow.Size.SMALL, true);
-        setDestroyOnHide(false);
-        setWindowTitle("Edit Pose");
-        setButtonOkText("Save");
-        pack(false);
-        setIsResizable(false);
-        setIsMovable(true);
-        UIUtil.center(screen, this);
-        screen.addElement(this);
-    }
+	public PoseEditWindow(BaseScreen screen) {
+		super(screen, true);
+		setDestroyOnHide(false);
+		setWindowTitle("Edit Pose");
+		setButtonOkText("Save");
+		setResizable(false);
+		setMovable(true);
+		screen.showElement(this, ScreenLayoutConstraints.center);
+	}
 
-    protected abstract void onSave(AnimationSequence seq);
+	protected abstract void onSave(AnimationSequence seq);
 
-    @Override
-    public void onButtonOkPressed(MouseButtonEvent evt, boolean toggled) {
-        onSave(editPanel.getSequence());
-        hideWithEffect();
-    }
+	@Override
+	public void onButtonOkPressed(MouseButtonEvent evt, boolean toggled) {
+		onSave(editPanel.getSequence());
+		hide();
+	}
 
-    protected void onAdd(AttachmentItem attachmentItem) {
-    }
+	protected void onAdd(AttachmentItem attachmentItem) {
+	}
 
-    @Override
-    protected void createButtons(Element buttons) {
-        super.createButtons(buttons);
-        btnCancel = new CancelButton(screen, getUID() + ":btnCancel") {
-            @Override
-            public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-                hideWindow();
-            }
-        };
-        btnCancel.setText("Cancel");
-        buttons.addChild(btnCancel);
-        form.addFormElement(btnCancel);
-    }
+	@Override
+	protected void createButtons(BaseElement buttons) {
+		super.createButtons(buttons);
+		btnCancel = new PushButton(screen, "Cancel") {
+			{
+				setStyleClass("cancel");
+			}
+		};
+		btnCancel.onMouseReleased(evt -> hide());
+		btnCancel.setText("Cancel");
+		buttons.addElement(btnCancel);
+		form.addFormElement(btnCancel);
+	}
 
-    @Override
-    protected Element createContent() {
-        editPanel = new PoseEditPanel(screen);
-        return editPanel;
-    }
+	@Override
+	protected Element createContent() {
+		editPanel = new PoseEditPanel(screen);
+		return editPanel;
+	}
 
-    public void setAnimations(Collection<String> animations) {
-        editPanel.setAnimations(animations);
-    }
+	public void setAnimations(Collection<String> animations) {
+		editPanel.setAnimations(animations);
+	}
 
-    public void setSequence(AnimationSequence sequence) {
-        editPanel.setSequence(sequence);
-    }
+	public void setSequence(AnimationSequence sequence) {
+		editPanel.setSequence(sequence);
+	}
 }

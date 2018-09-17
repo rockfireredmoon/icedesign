@@ -14,17 +14,16 @@ import org.icescene.ServiceRef;
 import org.icescene.configuration.ColorMapConfiguration;
 import org.icescene.configuration.attachments.AttachableDef;
 import org.iceui.IceUI;
-import org.iceui.controls.color.ColorButton;
-import org.iceui.controls.color.XColorSelector;
 
 import com.jme3.asset.AssetNotFoundException;
 import com.jme3.font.BitmapFont;
 import com.jme3.math.ColorRGBA;
 
+import icetone.core.BaseScreen;
 import icetone.core.Element;
-import icetone.core.ElementManager;
 import icetone.core.layout.FlowLayout;
-import icetone.core.utils.UIDUtil;
+import icetone.extras.chooser.ColorButton;
+import icetone.extras.chooser.ColorSelector;
 
 public class AttachmentColourBar extends Element {
 
@@ -35,7 +34,7 @@ public class AttachmentColourBar extends Element {
 	@ServiceRef
 	protected static AttachableDef attachableDef;
 
-	public AttachmentColourBar(ElementManager mgr, AbstractCreature creature) {
+	public AttachmentColourBar(BaseScreen mgr, AbstractCreature creature) {
 		super(mgr);
 		setLayoutManager(new FlowLayout(2, BitmapFont.Align.Center));
 		this.creature = creature;
@@ -49,11 +48,11 @@ public class AttachmentColourBar extends Element {
 		this.def = def;
 		removeAllChildren();
 		if (def != null) {
-			final String tintPath = Icescene.checkAssetPath(String.format("%1$s/%2$s-Tint.png.colormap", def.getKey().getPath(),
-					def.getKey().getName()));
+			final String tintPath = Icescene.checkAssetPath(
+					String.format("%1$s/%2$s-Tint.png.colormap", def.getKey().getPath(), def.getKey().getName()));
 			try {
-				final ColorMapConfiguration itemColours = ColorMapConfiguration.get(screen.getApplication().getAssetManager(),
-						tintPath);
+				final ColorMapConfiguration itemColours = ColorMapConfiguration
+						.get(screen.getApplication().getAssetManager(), tintPath);
 				final List<RGB> mapColors = itemColours.colors();
 				for (int i = 0; i < mapColors.size(); i++) {
 					RGB col = mapColors.get(i);
@@ -70,7 +69,7 @@ public class AttachmentColourBar extends Element {
 	}
 
 	private void addChooser(final RGB rgb, final int idx, final List<RGB> mapColors) {
-		ColorButton cfc = new ColorButton(screen, UIDUtil.getUID(), IceUI.toRGBA(rgb), false) {
+		ColorButton cfc = new ColorButton(screen, IceUI.toRGBA(rgb), false) {
 			@Override
 			protected void onChangeColor(ColorRGBA newColor) {
 				// If the point doesn't have any colors (fill in the defaults
@@ -87,8 +86,8 @@ public class AttachmentColourBar extends Element {
 				onUpdate();
 			}
 		};
-		cfc.setTabs(XColorSelector.ColorTab.values());
-		addChild(cfc);
+		cfc.setTabs(ColorSelector.ColorTab.values());
+		addElement(cfc);
 	}
 
 	protected void onUpdate() {

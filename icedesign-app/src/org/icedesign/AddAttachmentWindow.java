@@ -8,15 +8,15 @@ import org.icelib.Appearance;
 import org.icelib.AttachableTemplate;
 import org.icelib.AttachmentItem;
 
-import icetone.controls.lists.Table.SelectionMode;
+import icetone.controls.table.Table.SelectionMode;
+import icetone.core.BaseScreen;
 import icetone.core.Element;
-import icetone.core.ElementManager;
 
 public class AddAttachmentWindow extends AbstractItemSelectWindow {
 
 	private final AbstractCreature creature;
 
-	public AddAttachmentWindow(ElementManager screen, AbstractCreature creature) {
+	public AddAttachmentWindow(BaseScreen screen, AbstractCreature creature) {
 		super(screen, "Select Attachment", "Select");
 		this.creature = creature;
 	}

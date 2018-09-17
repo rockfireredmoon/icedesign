@@ -10,7 +10,6 @@ import org.icedesign.DesignConstants;
 import org.icelib.AppInfo;
 import org.icelib.Appearance;
 import org.icelib.Persona;
-import org.icelib.UndoManager;
 import org.icescene.HUDMessageAppState;
 import org.icescene.IcesceneApp;
 import org.icescene.assets.Assets;
@@ -22,13 +21,14 @@ import org.icescene.io.ModifierKeysAppState;
 import org.icescene.io.MouseManager;
 import org.icescene.options.OptionsAppState;
 import org.icescene.props.EntityFactory;
-import org.icescene.ui.WindowManagerAppState;
 import org.lwjgl.opengl.Display;
 
 import com.jme3.input.controls.ActionListener;
 import com.jme3.math.Vector3f;
 
 import icemoon.iceloader.ServerAssetManager;
+import icetone.core.undo.UndoManager;
+import icetone.extras.appstates.FrameManagerAppState;
 
 public class Icedesign extends IcesceneApp implements ActionListener {
 
@@ -127,13 +127,13 @@ public class Icedesign extends IcesceneApp implements ActionListener {
 		stateManager.attach(new HUDMessageAppState());
 
 		// Some windows need management
-		stateManager.attach(new WindowManagerAppState(prefs));
+		stateManager.attach(new FrameManagerAppState(screen));
 
 		// Mouse manager requires modifier keys to be monitored
 		stateManager.attach(new ModifierKeysAppState());
 
 		// Mouse manager for dealing with clicking, dragging etc.
-		final MouseManager mouseManager = new MouseManager(rootNode, getAlarm());
+		final MouseManager mouseManager = new MouseManager(rootNode);
 		stateManager.attach(mouseManager);
 
 		// A menu

@@ -1,7 +1,5 @@
 package org.icedesign;
 
-import java.io.File;
-
 public class DesignConstants {
     /**
      * The preference key app settings are stored under

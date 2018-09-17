@@ -11,9 +11,6 @@ import java.util.logging.Logger;
 
 import org.apache.commons.io.IOUtils;
 import org.iceui.controls.ElementStyle;
-import org.iceui.controls.FancyInputBox;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.UIUtil;
 
 import com.jme3.asset.AssetInfo;
 import com.jme3.asset.AssetKey;
@@ -22,37 +19,39 @@ import com.jme3.font.LineWrapMode;
 import com.jme3.input.event.MouseButtonEvent;
 import com.jme3.math.Vector2f;
 
-import icetone.core.ElementManager;
+import icetone.core.BaseScreen;
+import icetone.core.layout.ScreenLayoutConstraints;
+import icetone.extras.windows.InputBox;
 
-public abstract class AbstractCloneWindow<T> extends FancyInputBox {
+public abstract class AbstractCloneWindow<T> extends InputBox {
 	private static final Logger LOG = Logger.getLogger(AbstractCloneWindow.class.getName());
 
 	protected T def;
 
-	public AbstractCloneWindow(ElementManager screen, T def) {
-		super(screen, Vector2f.ZERO, FancyWindow.Size.LARGE, false);
+	public AbstractCloneWindow(BaseScreen screen, T def) {
+		super(screen, Vector2f.ZERO, false);
+		setStyleClass("large");
 		this.def = def;
-		ElementStyle.normal(screen, getDragBar(), true, false);
+		ElementStyle.normal(getDragBar(), true, false);
 		getDragBar().setTextWrap(LineWrapMode.Word);
 		setDestroyOnHide(true);
-		getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+		ElementStyle.warningColor(getDragBar());
 		sizeToContent();
 		setWidth(300);
-		setIsResizable(false);
-		setIsMovable(false);
-		UIUtil.center(screen, this);
-		screen.addElement(this, null, true);
-		showAsModal(true);
+		setResizable(false);
+		setMovable(false);
+		setModal(true);
+		screen.showElement(this, ScreenLayoutConstraints.center);
 	}
 
 	@Override
 	public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-		hideWindow();
+		hide();
 	}
 
 	@Override
 	public void onButtonOkPressed(MouseButtonEvent evt, String text, boolean toggled) {
-		hideWindow();
+		hide();
 		try {
 			doCloneItem(def, text.replace(" ", "").replace("/", ""));
 		} catch (IOException ex) {

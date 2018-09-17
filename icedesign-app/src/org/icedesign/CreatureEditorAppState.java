@@ -35,13 +35,13 @@ import org.icelib.Icelib;
 import org.icelib.Persona;
 import org.icelib.RGB;
 import org.icelib.Region;
-import org.icelib.UndoManager;
 import org.icescene.IcemoonAppState;
 import org.icescene.IcesceneApp;
 import org.icescene.ServiceRef;
 import org.icescene.animation.AnimationOption;
 import org.icescene.animation.AnimationSequence;
 import org.icescene.assets.Assets;
+import org.icescene.assets.ExtendedMaterialListKey.Lighting;
 import org.icescene.configuration.ClothingDef;
 import org.icescene.configuration.attachments.AttachableDef;
 import org.icescene.configuration.attachments.AttachableTemplates;
@@ -64,58 +64,62 @@ import org.icesquirrel.interpreter.SquirrelInterpretedTable;
 import org.icesquirrel.runtime.SquirrelArray;
 import org.icesquirrel.runtime.SquirrelPrinter;
 import org.icesquirrel.runtime.SquirrelTable;
-import org.iceui.HPosition;
 import org.iceui.IceUI;
-import org.iceui.VPosition;
-import org.iceui.XTabPanelContent;
-import org.iceui.controls.AutocompleteTextField;
-import org.iceui.controls.AutocompleteTextField.AutocompleteItem;
-import org.iceui.controls.AutocompleteTextField.AutocompleteSource;
-import org.iceui.controls.CancelButton;
 import org.iceui.controls.ElementStyle;
-import org.iceui.controls.FancyButton;
-import org.iceui.controls.FancyButtonWindow;
-import org.iceui.controls.FancyPersistentWindow;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.SaveType;
 import org.iceui.controls.TabPanelContent;
-import org.iceui.controls.UIUtil;
-import org.iceui.controls.XScreen;
-import org.iceui.controls.XSeparator;
-import org.iceui.controls.ZMenu;
-import org.iceui.controls.color.ColorButton;
-import org.iceui.controls.color.XColorSelector;
 
 import com.jme3.font.BitmapFont;
-import com.jme3.input.event.KeyInputEvent;
+import com.jme3.font.BitmapFont.Align;
+import com.jme3.font.BitmapFont.VAlign;
 import com.jme3.input.event.MouseButtonEvent;
 import com.jme3.math.ColorRGBA;
 import com.jme3.math.FastMath;
 import com.jme3.math.Vector2f;
 
 import icemoon.iceloader.ServerAssetManager;
-import icetone.controls.buttons.ButtonAdapter;
+import icetone.controls.buttons.Button;
 import icetone.controls.buttons.CheckBox;
+import icetone.controls.buttons.PushButton;
+import icetone.controls.containers.TabControl;
+import icetone.controls.extras.Separator;
 import icetone.controls.lists.ComboBox;
 import icetone.controls.lists.FloatRangeSliderModel;
 import icetone.controls.lists.FloatRangeSpinnerModel;
 import icetone.controls.lists.SelectList;
 import icetone.controls.lists.Slider;
 import icetone.controls.lists.Spinner;
-import icetone.controls.lists.Table;
-import icetone.controls.lists.Table.TableRow;
+import icetone.controls.menuing.Menu;
+import icetone.controls.table.Table;
+import icetone.controls.table.TableCell;
+import icetone.controls.table.TableRow;
+import icetone.controls.text.AutocompleteItem;
+import icetone.controls.text.AutocompleteSource;
+import icetone.controls.text.AutocompleteTextField;
 import icetone.controls.text.Label;
 import icetone.controls.text.TextField;
-import icetone.controls.windows.TabControl;
-import icetone.core.Container;
+import icetone.core.BaseElement;
+import icetone.core.Layout.LayoutType;
+import icetone.core.Orientation;
+import icetone.core.BaseScreen;
+import icetone.core.Size;
+import icetone.core.StyledContainer;
 import icetone.core.Element;
-import icetone.core.Screen;
+import icetone.core.ToolKit;
+import icetone.core.layout.Border;
 import icetone.core.layout.BorderLayout;
 import icetone.core.layout.FillLayout;
 import icetone.core.layout.FlowLayout;
-import icetone.core.layout.LUtil;
+import icetone.core.layout.ScreenLayoutConstraints;
 import icetone.core.layout.mig.MigLayout;
-import icetone.core.utils.UIDUtil;
+import icetone.core.undo.UndoManager;
+import icetone.core.undo.UndoableCommand;
+import icetone.core.utils.Alarm.AlarmTask;
+import icetone.extras.chooser.ColorButton;
+import icetone.extras.chooser.ColorSelector;
+import icetone.extras.util.ExtrasUtil;
+import icetone.extras.windows.ButtonWindow;
+import icetone.extras.windows.PersistentWindow;
+import icetone.extras.windows.SaveType;
 
 /**
  * Provides an enhanced 'Creature Tweak' that contains all of the features of
@@ -133,7 +137,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	final static CreatureKey PROP_KEY = new CreatureKey("Prop", null);
 
 	private static final Logger LOG = Logger.getLogger(CreatureEditorAppState.class.getName());
-	private FancyButton clone;
+	private PushButton clone;
 	private Preview previewPanel;
 	private boolean sync;
 	private final UndoManager undoManager;
@@ -164,53 +168,53 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	private ComboBox<Race> race;
 	private ComboBox<Head> head;
 	private List<Listener> listeners = new ArrayList<>();
-	private boolean adjusting;
 	private Map<Region, ArmourColourBar> colorChoosers = new HashMap<>();
 	private Map<Region, ComboBox<ClothingTemplate>> assetChoosers = new HashMap<>();
-	private Map<Region, ButtonAdapter> editButtons = new HashMap<>();
+	private Map<Region, PushButton> editButtons = new HashMap<>();
 	private AbstractCreature creature;
 	private TextField name;
 	private Table bodyTemplate;
-	private Element bipedDetails;
+	private BaseElement bipedDetails;
 	private TabControl tabs;
 	private Spinner<Float> earSize;
 	private Spinner<Float> tailSize;
 	private AbstractCreatureDefinition creatureDefinition;
-	private Element skinPanel;
+	private BaseElement skinPanel;
 	private PosePanel posePanel;
 	private TextField bodyFilter;
 	private TextField clothingFilter;
-	private Element clothing;
+	private BaseElement clothing;
 	private Label clothingNotSupportedMessage;
 	private Table attachments;
 	private ComboBox<AttachmentPoint> attachmentPoint;
 	private TextField effect;
-	private ButtonAdapter chooseEffect;
+	private PushButton chooseEffect;
 	private AttachmentColourBar attachmentColours;
-	private Element attachmentDetails;
+	private BaseElement attachmentDetails;
 	private ComboBox<ClothingTemplate> clothingSet;
 	private AttachableTemplate attachableTemplate;
 	private TextField prop;
 	private final EntityFactory propFactory;
 	private Label skinNotSupportedMessage;
 	private Label attachmentsNotSupportedMessage;
-	private Element attachmentsPanel;
+	private BaseElement attachmentsPanel;
 	private Label poseNotSupportedMessage;
-	private FancyButton preview;
+	private PushButton preview;
 	private final EntityLoader spawnLoader;
 	private AbstractSpawnEntity previewEntity;
-	private Container previewContainerPanel;
+	private StyledContainer previewContainerPanel;
 	private Slider<Float> light;
 	private AbstractSpawnEntity target;
 	private CheckBox syncWithSelection;
-	private FancyPersistentWindow clothingTextureEditorWindow;
+	private PersistentWindow clothingTextureEditorWindow;
 	private ClothingTextureEditorPanel clothingTextureEditor;
 	private final Assets assets;
-	private FancyButton cloneAttachment;
-	private FancyButton editAttachment;
+	private PushButton cloneAttachment;
+	private PushButton editAttachment;
 	private CreatureKey creatureKey;
 
-	protected FancyPersistentWindow window;
+	protected PersistentWindow window;
+	private AlarmTask bodyFilterTimer;
 	@ServiceRef
 	protected static AttachableTemplates attachableTemplatesConfiguration;
 	@ServiceRef
@@ -222,8 +226,8 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	@ServiceRef
 	protected static AttachableDef attachableDef;
 
-	public CreatureEditorAppState(UndoManager undoManager, Preferences pref, EntityFactory propFactory, EntityLoader spawnLoader,
-			Assets assets, Persona persona) {
+	public CreatureEditorAppState(UndoManager undoManager, Preferences pref, EntityFactory propFactory,
+			EntityLoader spawnLoader, Assets assets, Persona persona) {
 		super(pref);
 		addPrefKeyPattern(DesignConfig.CREATURE_TWEAK + ".*");
 
@@ -260,9 +264,9 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 			this.sync = sync;
 			if (syncWithSelection != null) {
 				if (target == null) {
-					syncWithSelection.setIsCheckedNoCallback(sync);
+					syncWithSelection.runAdjusting(() -> syncWithSelection.setChecked(sync));
 				} else {
-					syncWithSelection.setIsChecked(sync);
+					syncWithSelection.setChecked(sync);
 				}
 			}
 		}
@@ -271,11 +275,11 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	public void setTargetCreatureSpatial(AbstractSpawnEntity target) {
 		this.target = target;
 		if (syncWithSelection != null) {
-			syncWithSelection.setIsVisible(target != null);
+			syncWithSelection.setVisible(target != null);
 			// if (target == null) {
 			// syncWithSelection.setIsCheckedNoCallback(target != null);
 			// }
-			if (syncWithSelection.getIsChecked()) {
+			if (syncWithSelection.isChecked()) {
 				loadFromTargetAppearance();
 			}
 		}
@@ -287,8 +291,12 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		assetManager = app.getAssetManager();
 		screen = ((IcesceneApp) app).getScreen();
 
-		window = new FancyPersistentWindow(screen, DesignConfig.CREATURE_TWEAK, 8, VPosition.TOP, HPosition.LEFT, LUtil.LAYOUT_SIZE,
-				FancyWindow.Size.LARGE, false, SaveType.POSITION_AND_SIZE, prefs) {
+		window = new PersistentWindow(screen, DesignConfig.CREATURE_TWEAK, 8, VAlign.Top, Align.Left, null, false,
+				SaveType.POSITION_AND_SIZE, prefs) {
+			{
+				setStyleClass("large");
+			}
+
 			@Override
 			protected void onCloseWindow() {
 				super.onCloseWindow();
@@ -304,39 +312,39 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 
 		// The window content contains the editor area and the toggleable
 		// preview area
-		final Element windowContent = window.getContentArea();
+		final BaseElement windowContent = window.getContentArea();
 		windowContent.setLayoutManager(new BorderLayout());
 
 		// The editor area
-		final Container editorArea = new Container(screen);
+		final StyledContainer editorArea = new StyledContainer(screen);
 		editorArea.setLayoutManager(
 				new MigLayout(screen, "fill, wrap 3", "[shrink 0][grow][shrink 0]", "[shrink 0][grow][shrink 0]"));
-		windowContent.addChild(editorArea, BorderLayout.Border.CENTER);
+		windowContent.addElement(editorArea, Border.CENTER);
 
 		Label l = new Label(screen);
 		l.setText("Name:");
-		editorArea.addChild(l);
+		editorArea.addElement(l);
 
 		name = new TextField(screen);
-		editorArea.addChild(name, "growx");
+		editorArea.addElement(name, "growx");
 
-		preview = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				prefs.putBoolean(DesignConfig.CREATURE_TWEAK_PREVIEW,
-						!prefs.getBoolean(DesignConfig.CREATURE_TWEAK_PREVIEW, DesignConfig.CREATURE_TWEAK_PREVIEW_DEFAULT));
+		preview = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		preview.onMouseReleased(evt -> {
+			prefs.putBoolean(DesignConfig.CREATURE_TWEAK_PREVIEW, !prefs.getBoolean(DesignConfig.CREATURE_TWEAK_PREVIEW,
+					DesignConfig.CREATURE_TWEAK_PREVIEW_DEFAULT));
+		});
 		preview.setText("Preview");
 		preview.setButtonIconAlign(BitmapFont.Align.Right);
-		ElementStyle.arrowButton((Screen) screen, preview, "Right");
-		editorArea.addChild(preview, "");
+		ElementStyle.arrowButton(preview, Border.EAST);
+		editorArea.addElement(preview, "");
 
 		tabs = new TabControl(screen);
 		tabs.setUseSlideEffect(true);
-		editorArea.addChild(tabs, "growx, growy, span 3");
-
-		adjust(true);
+		editorArea.addElement(tabs, "growx, growy, span 3");
 
 		tabs.addTab("Body", createBody());
 		tabs.addTab("Skin", createSkin());
@@ -345,47 +353,43 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		tabs.addTab("Pose", createPose());
 
 		// Buttons
-		Element buttons = new Element(screen);
+		BaseElement buttons = new BaseElement(screen);
 		buttons.setLayoutManager(new MigLayout(screen, "wrap 3", "[][]push[]", "[]"));
-		editorArea.addChild(buttons, "growx, span 3");
+		editorArea.addElement(buttons, "growx, span 3");
 
 		// Load appearance
-		FancyButton load = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				showLoadMenu(evt.getX(), evt.getY());
+		PushButton load = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		load.onMouseReleased(evt -> showLoadMenu(evt.getX(), evt.getY()));
 		load.setText("Load");
 		load.setToolTipText("Load creature appearance from clipboard, selection or slot");
-		buttons.addChild(load);
+		buttons.addElement(load);
 
 		// Save appearance
-		FancyButton save = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				showSaveMenu(evt.getX(), evt.getY());
+		PushButton save = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		save.onMouseReleased(evt -> showSaveMenu(evt.getX(), evt.getY()));
 		save.setText("Save");
 		save.setToolTipText("Save creature appearance to clipboard, selection or slot");
-		buttons.addChild(save);
+		buttons.addElement(save);
 
 		// Automatically synchronize with selection
-		syncWithSelection = new CheckBox(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				if (toggled) {
-					loadFromTargetAppearance();
-				}
+		syncWithSelection = new CheckBox(screen);
+		syncWithSelection.setChecked(sync);
+		syncWithSelection.onChange(evt -> {
+			if (!evt.getSource().isAdjusting() && evt.getNewValue()) {
+				loadFromTargetAppearance();
 			}
-		};
-		syncWithSelection.setLabelText("Synchronise with selection");
-		syncWithSelection.setIsCheckedNoCallback(sync);
-		syncWithSelection.setIsVisible(target != null);
-		buttons.addChild(syncWithSelection);
-
-		adjust(false);
+		});
+		syncWithSelection.setText("Synchronise with selection");
+		syncWithSelection.setVisible(target != null);
+		buttons.addElement(syncWithSelection);
 
 		updateForms();
 		checkPreview(false);
@@ -436,7 +440,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 						final float val = prefs.getFloat(DesignConfig.CREATURE_TWEAK_PREVIEW_LIGHT,
 								DesignConfig.CREATURE_TWEAK_PREVIEW_LIGHT_DEFAULT);
 						previewPanel.getAmbientLight().setColor(ColorRGBA.White.mult(val));
-						light.setSelectedValue(val);
+						light.runAdjusting(() -> light.setSelectedValue(val));
 					}
 					return null;
 				}
@@ -448,7 +452,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		if (previewContainerPanel == null
 				&& prefs.getBoolean(DesignConfig.CREATURE_TWEAK_PREVIEW, DesignConfig.CREATURE_TWEAK_PREVIEW_DEFAULT)) {
 			// Viewport border
-			previewPanel = new Preview(screen);
+			previewPanel = new Preview(screen, new Size(200, 300));
 			float lightAmt = prefs.getFloat(DesignConfig.CREATURE_TWEAK_PREVIEW_LIGHT,
 					DesignConfig.CREATURE_TWEAK_PREVIEW_LIGHT_DEFAULT);
 			previewPanel.getAmbientLight().setColor(ColorRGBA.White.mult(lightAmt));
@@ -456,76 +460,58 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 			createCreatureSpatial();
 
 			// Rotator Buttons
-			ButtonAdapter rotateLeft = new ButtonAdapter(screen, screen.getStyle("RotateLeftButton").getVector2f("defaultSize")) {
-				@Override
-				public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggled) {
-					previewEntity.getSpatial().addControl(new Rotator(-3f));
-				}
-
-				@Override
-				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-					previewEntity.getSpatial().removeControl(Rotator.class);
-				}
-			};
-			rotateLeft.setStyles("RotateLeftButton");
-			ButtonAdapter rotateRight = new ButtonAdapter(screen, screen.getStyle("RotateRightButton").getVector2f("defaultSize")) {
-				@Override
-				public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggled) {
-					previewEntity.getSpatial().addControl(new Rotator(3f));
-				}
-
-				@Override
-				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-					previewEntity.getSpatial().removeControl(Rotator.class);
-				}
-			};
-			rotateRight.setStyles("RotateRightButton");
-			Container rotatorButtons = new Container(screen);
+			Button rotateLeft = new Button(screen);
+			rotateLeft.setStyleClass("rotate-button rotate-left");
+			rotateLeft.onMousePressed(evt -> previewEntity.getSpatial().addControl(new Rotator(-3f)));
+			rotateLeft.onMouseReleased(evt -> previewEntity.getSpatial().removeControl(Rotator.class));
+			Button rotateRight = new Button(screen);
+			rotateRight.setStyleClass("rotate-button rotate-right");
+			rotateRight.onMousePressed(evt -> previewEntity.getSpatial().addControl(new Rotator(3f)));
+			rotateRight.onMouseReleased(evt -> previewEntity.getSpatial().removeControl(Rotator.class));
+			StyledContainer rotatorButtons = new StyledContainer(screen);
 			rotatorButtons.setLayoutManager(new FlowLayout(4, BitmapFont.Align.Center));
-			rotatorButtons.addChild(rotateLeft);
-			rotatorButtons.addChild(rotateRight);
+			rotatorButtons.addElement(rotateLeft);
+			rotatorButtons.addElement(rotateRight);
 
 			// Tools
-			light = new Slider<Float>(screen, Slider.Orientation.HORIZONTAL, true) {
-				@Override
-				public void onChange(Float value) {
-					prefs.putFloat(DesignConfig.CREATURE_TWEAK_PREVIEW_LIGHT, (Float) value);
-				}
-			};
+			light = new Slider<Float>(screen, Orientation.HORIZONTAL);
+			light.onChanged((evt) -> {
+				if(!evt.getSource().isAdjusting())
+					prefs.putFloat(DesignConfig.CREATURE_TWEAK_PREVIEW_LIGHT, evt.getNewValue());
+			});
 			light.setToolTipText("Light");
 			light.setSliderModel(new FloatRangeSliderModel(0.1f, 20f, lightAmt, 0.5f));
 			light.setLockToStep(true);
 
 			// Preview container panel (adds vertical separator)
-			previewContainerPanel = new Container(screen);
+			previewContainerPanel = new StyledContainer(screen);
 			previewContainerPanel.setLayoutManager(new MigLayout(screen, "", "[][]", "[][][]"));
-			previewContainerPanel.addChild(new XSeparator(screen, Element.Orientation.VERTICAL), "spany, growy");
-			previewContainerPanel.addChild(light, "growx, wrap, pushy");
-			previewContainerPanel.addChild(previewPanel, "wrap");
-			previewContainerPanel.addChild(rotatorButtons, "ax 50%, pushy");
+			previewContainerPanel.addElement(new Separator(screen, Orientation.VERTICAL), "spany, growy");
+			previewContainerPanel.addElement(light, "growx, wrap, pushy");
+			previewContainerPanel.addElement(previewPanel, "wrap");
+			previewContainerPanel.addElement(rotatorButtons, "ax 50%, pushy");
 
-			ElementStyle.arrowButton((Screen) screen, preview, "Left");
+			ElementStyle.arrowButton(preview, Border.WEST);
 
 			// Window
-			window.getContentArea().addChild(previewContainerPanel, BorderLayout.Border.EAST);
+			window.getContentArea().addElement(previewContainerPanel, Border.EAST);
 			if (resizeWindow) {
-				Vector2f pSz = LUtil.getContainerPreferredDimensions(previewContainerPanel);
-				LUtil.setDimensions(window, pSz.x + window.getWidth(), window.getHeight());
+				Vector2f pSz = previewContainerPanel.calcPreferredSize();
+				window.setDimensions(pSz.x + window.getWidth(), window.getHeight());
 				window.layoutChildren();
-				UIUtil.saveWindowPositionAndSize(prefs, window, DesignConfig.CREATURE_TWEAK);
+				ExtrasUtil.saveWindowPositionAndSize(prefs, window, DesignConfig.CREATURE_TWEAK);
 			}
 
 			//
 			spawnLoader.reload(previewEntity);
-		} else if (previewContainerPanel != null
-				&& !prefs.getBoolean(DesignConfig.CREATURE_TWEAK_PREVIEW, DesignConfig.CREATURE_TWEAK_PREVIEW_DEFAULT)) {
+		} else if (previewContainerPanel != null && !prefs.getBoolean(DesignConfig.CREATURE_TWEAK_PREVIEW,
+				DesignConfig.CREATURE_TWEAK_PREVIEW_DEFAULT)) {
 			final float targetWidth = window.getWidth() - previewContainerPanel.getWidth();
-			window.getContentArea().removeChild(previewContainerPanel);
-			ElementStyle.arrowButton((Screen) screen, preview, "Right");
+			window.getContentArea().removeElement(previewContainerPanel);
+			ElementStyle.arrowButton(preview, Border.EAST);
 			if (resizeWindow) {
-				LUtil.setDimensions(window, targetWidth, window.getHeight());
-				window.layoutChildren();
-				UIUtil.saveWindowPositionAndSize(prefs, window, DesignConfig.CREATURE_TWEAK);
+				window.setDimensions(targetWidth, window.getHeight());
+				ExtrasUtil.saveWindowPositionAndSize(prefs, window, DesignConfig.CREATURE_TWEAK);
 			}
 			previewContainerPanel = null;
 			light = null;
@@ -538,21 +524,14 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	protected void onCleanup() {
 		super.onCleanup();
 		window.setDestroyOnHide(true);
-		window.hideWithEffect();
+		window.hide();
 	}
 
-	private void adjust(boolean a) {
-		if (a == adjusting) {
-			throw new IllegalStateException("Already adjusting.");
-		}
-		this.adjusting = a;
-	}
-
-	private XTabPanelContent createPose() {
+	private TabPanelContent createPose() {
 
 		LOG.info("Creating poses");
 
-		XTabPanelContent tpc = new XTabPanelContent(screen);
+		TabPanelContent tpc = new TabPanelContent(screen);
 		tpc.setLayoutManager(new BorderLayout(0, 0));
 
 		// Pose
@@ -566,14 +545,13 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 				if (posePanel.isForceLoop())
 					request.setLoop(true);
 
-				if (syncWithSelection.getIsChecked()) {
+				if (syncWithSelection.isChecked()) {
 					fireAnimationSequence(request);
-				}
-				else {
+				} else {
 					if (previewEntity != null) {
 						AnimationHandler<?, ?> control = previewEntity.getSpatial().getControl(AnimationHandler.class);
 						control.play(request);
-					}	
+					}
 				}
 			}
 
@@ -583,7 +561,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 					previewEntity.getSpatial().getControl(AnimationHandler.class).setSpeed(newSpeed);
 				}
 
-				if (syncWithSelection.getIsChecked()) {
+				if (syncWithSelection.isChecked()) {
 					fireAnimationSpeedChange(newSpeed);
 				}
 			}
@@ -593,7 +571,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 				if (previewEntity != null) {
 					previewEntity.getSpatial().getControl(AnimationHandler.class).stop();
 				}
-				if (syncWithSelection.getIsChecked()) {
+				if (syncWithSelection.isChecked()) {
 					fireStopAnimation();
 				}
 			}
@@ -601,7 +579,8 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 			@Override
 			protected void onStartAnimation() {
 				if (previewEntity != null) {
-					previewEntity.getSpatial().getControl(AnimationHandler.class).play(new AnimationRequest(posePanel.getPreset()));
+					previewEntity.getSpatial().getControl(AnimationHandler.class)
+							.play(new AnimationRequest(posePanel.getPreset()));
 				}
 
 				// TODO
@@ -613,64 +592,33 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		poseNotSupportedMessage.setTextAlign(BitmapFont.Align.Center);
 
 		// Tab content
-		tpc.addChild(posePanel, BorderLayout.Border.CENTER);
-		tpc.addChild(poseNotSupportedMessage, BorderLayout.Border.CENTER);
+		tpc.addElement(posePanel, Border.CENTER);
+		tpc.addElement(poseNotSupportedMessage, Border.CENTER);
 
 		return tpc;
 	}
 
 	private TabPanelContent createSkin() {
 
-		XTabPanelContent tpc = new XTabPanelContent(screen);
+		TabPanelContent tpc = new TabPanelContent(screen);
 		tpc.setLayoutManager(new BorderLayout(8, 8));
 
-		skinPanel = new Element(screen);
+		skinPanel = new BaseElement(screen);
 		skinPanel.setAsContainerOnly();
 		skinPanel.setLayoutManager(new MigLayout(screen, "wrap 4"));
 
 		// Not supported messages
-		skinNotSupportedMessage = new Label("Skin is not supported on this creature type",
-				screen)/* {
-						
-						@Override
-						public void setPosition(Vector2f position) {
-						// TODO Auto-generated method stub
-						super.setPosition(position);
-						System.out.println("setPosition " + position);
-						}
-						
-						@Override
-						public void setPosition(float x, float y) {
-						// TODO Auto-generated method stub
-						super.setPosition(x, y);
-						System.out.println("setPosition " + x + ", " + y);
-						}
-						
-						@Override
-						public void setX(float x) {
-						// TODO Auto-generated method stub
-						super.setX(x);
-						System.out.println("setX " + x);
-						}
-						
-						@Override
-						public void setY(float y) {
-						// TODO Auto-generated method stub
-						super.setY(y);
-						System.out.println("setY " + y);
-						}
-						
-						}*/;
+		skinNotSupportedMessage = new Label("Skin is not supported on this creature type", screen);
 		skinNotSupportedMessage.setTextAlign(BitmapFont.Align.Left);
 
 		// Tab content
-		tpc.addChild(skinPanel, BorderLayout.Border.CENTER);
-		tpc.addChild(skinNotSupportedMessage, BorderLayout.Border.CENTER);
+		tpc.addElement(skinPanel, Border.CENTER);
+		tpc.addElement(skinNotSupportedMessage, Border.CENTER);
 		return tpc;
 	}
 
-	private void createClothingRow(String label, final Region type, Element tabPanel) {
-		tabPanel.addChild(new Label(label, screen));
+	private void createClothingRow(String label, final Region type, BaseElement tabPanel) {
+		tabPanel.addElement(new Label(label, screen));
 
 		final ArmourColourBar colorBar = new ArmourColourBar(screen, type, creature) {
 			@Override
@@ -680,85 +628,82 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		};
 
 		// Asset
-		final ComboBox<ClothingTemplate> asset = new ComboBox<ClothingTemplate>(screen) {
-			@Override
-			public void onChange(int selectedIndex, ClothingTemplate value) {
-				if (!adjusting) {
+		ComboBox<ClothingTemplate> asset = new ComboBox<ClothingTemplate>(screen);
+		asset.onChange(evt -> {
+			if (!evt.getSource().isAdjusting()) {
 
-					final ClothingTemplate asset = value instanceof ClothingTemplate ? (ClothingTemplate) value : null;
+				// Update the creature appearance
+				Appearance appearance = creature.getAppearance();
+				Appearance.ClothingList clothingList = appearance.getClothing();
 
-					// Update the creature appearance
-					Appearance appearance = creature.getAppearance();
-					Appearance.ClothingList clothingList = appearance.getClothing();
+				if (type == null) {
+					clothingList.clear();
 
-					if (type == null) {
-						clothingList.clear();
-
-						// Clothing set
-						if (asset == null) {
-							// Set everything to None
-							for (Map.Entry<Region, ComboBox<ClothingTemplate>> b : assetChoosers.entrySet()) {
-								b.getValue().setSelectedIndex(0);
-								colorChoosers.get(b.getKey()).setDefinition(null);
-								editButtons.get(b.getKey()).setIsEnabled(false);
-							}
-						} else {
-							// Set everything to one particular set
-							final Map<Region, String> regions = asset.getRegions();
-							List<Region> remainingRegions = new ArrayList<Region>(regions.keySet());
-
-							// Regions that do exist in this set
-							for (Region r : regions.keySet()) {
-								ComboBox<ClothingTemplate> c = assetChoosers.get(r);
-								c.setSelectedByValue(asset, false);
-								remainingRegions.remove(r);
-								clothingList.add(new ClothingItem(r.toClothingType(), asset.getKey(), null, null));
-								colorChoosers.get(r).setDefinition(asset);
-								setEditAvailable(c, editButtons.get(r));
-							}
-
-							// Regions that don't exist in this set
-							for (Region r : remainingRegions) {
-								ComboBox<ClothingTemplate> c = assetChoosers.get(r);
-								colorChoosers.get(r).setDefinition(null);
-								c.setSelectedIndex(0);
-								editButtons.get(r).setIsEnabled(false);
-							}
+					// Clothing set
+					if (evt.getNewValue() == null) {
+						// Set everything to None
+						for (Map.Entry<Region, ComboBox<ClothingTemplate>> b : assetChoosers.entrySet()) {
+							b.getValue().runAdjusting(() -> b.getValue().setSelectedIndex(0));
+							colorChoosers.get(b.getKey()).setDefinition(null);
+							editButtons.get(b.getKey()).setEnabled(false);
 						}
-
 					} else {
-						// Items
-						Appearance.ClothingType clothingType = type.toClothingType();
-						ClothingItem it = clothingList.getItemForType(clothingType);
-						if (selectedIndex == 0) {
-							if (it != null) {
-								clothingList.remove(it);
-							}
-						} else {
-							if (it == null) {
-								it = new ClothingItem(clothingType, asset.getKey(), null, null);
-								clothingList.add(it);
-							} else {
-								it.setKey(asset.getKey());
-							}
+						// Set everything to one particular set
+						final Map<Region, String> regions = evt.getNewValue().getRegions();
+						List<Region> remainingRegions = new ArrayList<Region>(regions.keySet());
+
+						// Regions that do exist in this set
+						for (Region r : regions.keySet()) {
+							ComboBox<ClothingTemplate> c = assetChoosers.get(r);
+							c.runAdjusting(() -> c.setSelectedByValue(evt.getNewValue()));
+							remainingRegions.remove(r);
+							clothingList
+									.add(new ClothingItem(r.toClothingType(), evt.getNewValue().getKey(), null, null));
+							colorChoosers.get(r).setDefinition(evt.getNewValue());
+							setEditAvailable(c, editButtons.get(r));
 						}
 
-						// Rebuild colours
-						colorBar.setDefinition(asset);
-
-						setEditAvailable(this, editButtons.get(type));
-
+						// Regions that don't exist in this set
+						for (Region r : remainingRegions) {
+							ComboBox<ClothingTemplate> c = assetChoosers.get(r);
+							colorChoosers.get(r).setDefinition(null);
+							c.runAdjusting(() -> c.setSelectedIndex(0));
+							editButtons.get(r).setEnabled(false);
+						}
 					}
-					clone.setIsEnabled(
-							clothingSet != null && clothingSet.getSelectedListItem().getValue() instanceof ClothingTemplate);
-					appearance.setClothing(clothingList);
-					creature.setAppearance(appearance);
-					tweakUpdated(CreatureEditorAppState.Type.GENERAL);
+
+				} else {
+					// Items
+					Appearance.ClothingType clothingType = type.toClothingType();
+					ClothingItem it = clothingList.getItemForType(clothingType);
+					if (evt.getNewValue() == null) {
+						if (it != null) {
+							clothingList.remove(it);
+						}
+					} else {
+						if (it == null) {
+							it = new ClothingItem(clothingType, evt.getNewValue().getKey(), null, null);
+							clothingList.add(it);
+						} else {
+							it.setKey(evt.getNewValue().getKey());
+						}
+					}
+
+					// Rebuild colours
+					colorBar.setDefinition(evt.getNewValue());
+
+					setEditAvailable(asset, editButtons.get(type));
+
 				}
+				clone.setEnabled(clothingSet != null
+						&& clothingSet.getSelectedListItem().getValue() instanceof ClothingTemplate);
+				appearance.setClothing(clothingList);
+				creature.setAppearance(appearance);
+				tweakUpdated(CreatureEditorAppState.Type.GENERAL);
 			}
-		};
+		});
 		// asset.addListItem("None", 0);
-		asset.getMenu().setMaxDimensions(new Vector2f(Float.MAX_VALUE, 300));
+		asset.getMenu().setMaxDimensions(new Size(Float.MAX_VALUE, 300));
 
 		// clothingDef.loadAll(assetManager);
 		// for (ClothingDefinition def : Icelib.sort(clothingDef.values())) {
@@ -772,169 +717,162 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		} else {
 			clothingSet = asset;
 		}
-		tabPanel.addChild(asset);
+		tabPanel.addElement(asset);
 
 		// Color chooser
 		if (type == null) {
-			clone = new FancyButton(screen) {
-				@Override
-				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-					// ClothingTemplate sel =
-					// asset.getSelectedListItem().getValue();
-					// if (sel != null) {
-					// CloneItemWindow cw = new CloneItemWindow(screen) {
-					// protected void onCreate(AttachableTemplate newDef, File
-					// assetsDir) throws IOException {
-					// super.onCreate(newDef, assetsDir);
-					// Appearance appearance = creature.getAppearance();
-					// appearance.removeAttachment(sel);
-					// sel.setKey(newDef.getKey());
-					// appearance.addAttachment(sel);
-					// updateForms();
-					// recreateAndFireUpdateModels();
-					// }
-					// };
-					// cw.setItem(clothingDef.get(sel.getKey()));
-					// AttachmentPoint node = sel.getNode();
-					// if (node == null) {
-					// if (attachableTemplate != null) {
-					// node = attachableTemplate.getAttachPoints().get(0);
-					// }
-					// }
-					// cw.setAttachmentPoint(node);
-					// }
-
-					final ClothingTemplate value = asset.getSelectedListItem().getValue();
-					if (value instanceof ClothingTemplate) {
-						ClothingTemplate def = (ClothingTemplate) value;
-						System.out.println(">>" + def.getKey());
-
-						List<ClothingTemplate> defs = new ArrayList<ClothingTemplate>();
-						for (Region region : Region.values()) {
-							ComboBox<ClothingTemplate> lb = assetChoosers.get(region);
-							if (lb != null && lb.getSelectIndex() > 0) {
-								ClothingTemplate t = lb.getSelectedListItem().getValue();
-								defs.add(t);
-							}
-						}
-
-						new CloneClothingWindow(screen, def.getKey(), defs) {
-
-							protected void onDoCloneItem(final ClothingTemplate def, final ClothingTemplate newDef, String newName)
-									throws IOException {
-								// Now update the creature tweak window forms
-								refilterClothing();
-								clothingSet.setSelectedByValue(newDef, true);
-
-							}
-						};
-					}
+			clone = new PushButton(screen) {
+				{
+					setStyleClass("fancy");
 				}
 			};
-			clone.setIsEnabled(clothingSet != null && clothingSet.getSelectIndex() > -1
+			clone.onMouseReleased(evt -> {
+				// ClothingTemplate sel =
+				// asset.getSelectedListItem().getValue();
+				// if (sel != null) {
+				// CloneItemWindow cw = new CloneItemWindow(screen) {
+				// protected void onCreate(AttachableTemplate newDef, File
+				// assetsDir) throws IOException {
+				// super.onCreate(newDef, assetsDir);
+				// Appearance appearance = creature.getAppearance();
+				// appearance.removeAttachment(sel);
+				// sel.setKey(newDef.getKey());
+				// appearance.addAttachment(sel);
+				// updateForms();
+				// recreateAndFireUpdateModels();
+				// }
+				// };
+				// cw.setItem(clothingDef.get(sel.getKey()));
+				// AttachmentPoint node = sel.getNode();
+				// if (node == null) {
+				// if (attachableTemplate != null) {
+				// node = attachableTemplate.getAttachPoints().get(0);
+				// }
+				// }
+				// cw.setAttachmentPoint(node);
+				// }
+
+				final ClothingTemplate value = asset.getSelectedListItem().getValue();
+				if (value instanceof ClothingTemplate) {
+					ClothingTemplate def = (ClothingTemplate) value;
+
+					List<ClothingTemplate> defs = new ArrayList<ClothingTemplate>();
+					for (Region region : Region.values()) {
+						ComboBox<ClothingTemplate> lb = assetChoosers.get(region);
+						if (lb != null && lb.getSelectIndex() > 0) {
+							ClothingTemplate t = lb.getSelectedListItem().getValue();
+							defs.add(t);
+						}
+					}
+
+					new CloneClothingWindow(screen, def.getKey(), defs) {
+
+						protected void onDoCloneItem(final ClothingTemplate def, final ClothingTemplate newDef,
+								String newName) throws IOException {
+							// Now update the creature tweak window forms
+							refilterClothing();
+							clothingSet.setSelectedByValue(newDef);
+
+						}
+					};
+				}
+			});
+			clone.setEnabled(clothingSet != null && clothingSet.getSelectIndex() > -1
 					&& clothingSet.getSelectedListItem().getValue() instanceof ClothingTemplate);
 			clone.setText("Clone");
 			clone.setToolTipText("Clone this clothing set for texture editing");
-			tabPanel.addChild(clone, "span 4");
+			tabPanel.addElement(clone, "span 4");
 		} else {
-			tabPanel.addChild(colorBar);
+			tabPanel.addElement(colorBar);
 			colorChoosers.put(type, colorBar);
 
 			// Copy
-			final ButtonAdapter copyButton = new ButtonAdapter(screen) {
-				@Override
-				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-
-					SquirrelTable outter = new SquirrelTable();
-					SquirrelTable inner = new SquirrelTable();
-					final ClothingTemplate def = (ClothingTemplate) asset.getSelectedListItem().getValue();
-					inner.put("type", def.getKey().getType());
-					SquirrelArray cols = new SquirrelArray();
-					for (RGB r : creature.getAppearance().getClothing().getItemForType(type.toClothingType()).getColors()) {
-						cols.add(Icelib.toHexString(r));
-					}
-					inner.put("colors", cols);
-					outter.put("c", inner);
-					screen.setClipboardText(SquirrelPrinter.format(outter));
+			final PushButton copyButton = new PushButton(screen);
+			copyButton.onMouseReleased(evt -> {
+				SquirrelTable outter = new SquirrelTable();
+				SquirrelTable inner = new SquirrelTable();
+				final ClothingTemplate def = (ClothingTemplate) asset.getSelectedListItem().getValue();
+				inner.put("type", def.getKey().getType());
+				SquirrelArray cols = new SquirrelArray();
+				for (RGB r : creature.getAppearance().getClothing().getItemForType(type.toClothingType()).getColors()) {
+					cols.add(Icelib.toHexString(r));
 				}
-			};
+				inner.put("colors", cols);
+				outter.put("c", inner);
+				ToolKit.get().setClipboardText(SquirrelPrinter.format(outter));
+			});
 			copyButton.setToolTipText("Copy appearance to clipboard");
 			copyButton.setText("C");
-			ElementStyle.small(copyButton);
-			tabPanel.addChild(copyButton);
-			copyButton.setIsVisible(type != null);
+			ElementStyle.normal(copyButton);
+			tabPanel.addElement(copyButton);
+			copyButton.setVisible(type != null);
 
 			// Paste
-			final ButtonAdapter pasteButton = new ButtonAdapter(screen) {
-				@Override
-				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-					String clipText = screen.getClipboardText();
-					if (clipText != null) {
-						try {
-							SquirrelTable eo = SquirrelInterpretedTable.table(clipText);
-							SquirrelTable inner = (SquirrelTable) eo.get("c");
-							if (inner == null) {
-								throw new Exception("Content doesn't appear to be clothing item appearance string.");
-							}
-							String type = (String) inner.get("type");
-							if (type == null) {
-								throw new Exception("Content does not contain an asset type.");
-							}
-							// ENotation.EArray colors = (ENotation.EArray)
-							// inner.get("colors");
-							ClothingTemplate def = clothingDef.get(new EntityKey(type));
-							if (def == null) {
-								throw new Exception(String.format("Clothing item %s does not exist.", type));
-							}
-							asset.setSelectedByValue(def, true);
-						} catch (Exception e) {
-							LOG.log(Level.SEVERE, "Failed to parse clipboard content for clothing item apppearance.", e);
+			final PushButton pasteButton = new PushButton(screen);
+			pasteButton.onMouseReleased(evt -> {
+				String clipText = ToolKit.get().getClipboardText();
+				if (clipText != null) {
+					try {
+						SquirrelTable eo = SquirrelInterpretedTable.table(clipText);
+						SquirrelTable inner = (SquirrelTable) eo.get("c");
+						if (inner == null) {
+							throw new Exception("Content doesn't appear to be clothing item appearance string.");
 						}
+						String atype = (String) inner.get("type");
+						if (atype == null) {
+							throw new Exception("Content does not contain an asset type.");
+						}
+						// ENotation.EArray colors = (ENotation.EArray)
+						// inner.get("colors");
+						ClothingTemplate def = clothingDef.get(new EntityKey(atype));
+						if (def == null) {
+							throw new Exception(String.format("Clothing item %s does not exist.", atype));
+						}
+						asset.setSelectedByValue(def);
+					} catch (Exception e) {
+						LOG.log(Level.SEVERE, "Failed to parse clipboard content for clothing item apppearance.", e);
 					}
 				}
-			};
+			});
 			pasteButton.setToolTipText("Paste appearance from clipboard");
 			pasteButton.setText("P");
-			ElementStyle.small(pasteButton);
-			tabPanel.addChild(pasteButton);
-			pasteButton.setIsVisible(type != null);
+			ElementStyle.normal(pasteButton);
+			tabPanel.addElement(pasteButton);
+			pasteButton.setVisible(type != null);
 
 			// Edit
-			final ButtonAdapter editButton = new ButtonAdapter(screen) {
-				@Override
-				public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-					final Object value = asset.getSelectedListItem().getValue();
-					if (value instanceof ClothingTemplate) {
-						final ClothingTemplate def = (ClothingTemplate) value;
-						edit(def, type);
-					}
+			final PushButton editButton = new PushButton(screen);
+			editButton.onMouseReleased(evt -> {
+				final Object value = asset.getSelectedListItem().getValue();
+				if (value instanceof ClothingTemplate) {
+					final ClothingTemplate def = (ClothingTemplate) value;
+					edit(def, type);
 				}
-			};
+			});
 			editButtons.put(type, editButton);
 			setEditAvailable(asset, editButton);
 			editButton.setToolTipText("Edit this item");
 			editButton.setText("E");
-			ElementStyle.small(editButton);
-			tabPanel.addChild(editButton);
-			editButton.setIsVisible(type != null);
+			ElementStyle.normal(editButton);
+			tabPanel.addElement(editButton);
+			editButton.setVisible(type != null);
 		}
 
 		refilterAssets(asset, "", type);
 
 	}
 
-	private void setEditAvailable(ComboBox<ClothingTemplate> asset, ButtonAdapter editButton) {
+	private void setEditAvailable(ComboBox<ClothingTemplate> asset, PushButton editButton) {
 		ClothingTemplate sel = asset.getSelectedValue();
-		editButton
-				.setIsEnabled(sel != null && assets
-						.getExternalAssetFile(
-								String.format("%s/%s", Icelib.toEnglish(sel.getKey().getType()), sel.getKey().getItemName()))
-						.exists());
+		editButton.setEnabled(sel != null && assets
+				.getExternalAssetFile(
+						String.format("%s/%s", Icelib.toEnglish(sel.getKey().getType()), sel.getKey().getItemName()))
+				.exists());
 	}
 
 	private void editItem(AttachableTemplate def) {
 
-		EditItemWindow itemTextureEditorWindow = ((XScreen) screen).getElementByClass(EditItemWindow.class);
+		EditItemWindow itemTextureEditorWindow = ((BaseScreen) screen).getElementByClass(EditItemWindow.class);
 		if (itemTextureEditorWindow == null) {
 			itemTextureEditorWindow = new EditItemWindow(screen, ((IcesceneApp) app).getAssets(), prefs) {
 				@Override
@@ -947,24 +885,23 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 					recreateAndFireUpdateModels();
 				}
 			};
-			screen.addElement(itemTextureEditorWindow, null, true);
+			screen.showElement(itemTextureEditorWindow);
 		}
 		itemTextureEditorWindow.setValue(def);
 	}
 
 	private void edit(ClothingTemplate def, Region region) {
 		if (clothingTextureEditorWindow == null) {
-			clothingTextureEditorWindow = new FancyPersistentWindow(screen, DesignConfig.CLOTHING_TEXTURE_EDITOR, 8,
-					VPosition.MIDDLE, HPosition.RIGHT, LUtil.LAYOUT_SIZE, FancyWindow.Size.SMALL, true, SaveType.POSITION_AND_SIZE,
-					prefs) {
+			clothingTextureEditorWindow = new PersistentWindow(screen, DesignConfig.CLOTHING_TEXTURE_EDITOR, 8,
+					VAlign.Center, Align.Right, null, true, SaveType.POSITION_AND_SIZE, prefs) {
 				@Override
 				protected void onCloseWindow() {
 					clothingTextureEditorWindow = null;
 					screen.removeElement(this);
 				}
 			};
-			clothingTextureEditorWindow.setIsResizable(true);
-			final Element windowContent = clothingTextureEditorWindow.getContentArea();
+			clothingTextureEditorWindow.setResizable(true);
+			final BaseElement windowContent = clothingTextureEditorWindow.getContentArea();
 			windowContent.setLayoutManager(new FillLayout());
 			clothingTextureEditor = new ClothingTextureEditorPanel(assets, screen, prefs) {
 				@Override
@@ -972,41 +909,35 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 					recreateAndFireUpdateModels();
 				}
 			};
-			windowContent.addChild(clothingTextureEditor);
-			clothingTextureEditorWindow.sizeToContent();
-			UIUtil.center(screen, clothingTextureEditorWindow);
-			screen.addElement(clothingTextureEditorWindow, null, true);
+			windowContent.addElement(clothingTextureEditor);
+			screen.showElement(clothingTextureEditorWindow, ScreenLayoutConstraints.center);
 		}
 		clothingTextureEditorWindow.setWindowTitle(String.format("Textures - %s", def.getKey().getName()));
 		clothingTextureEditor.setClothingDefinition(def, region);
-		if (!clothingTextureEditorWindow.getIsVisible()) {
-			clothingTextureEditorWindow.showWithEffect();
+		if (!clothingTextureEditorWindow.isVisible()) {
+			clothingTextureEditorWindow.show();
 		}
 	}
 
-	private XTabPanelContent createClothing() {
-		XTabPanelContent tpc = new XTabPanelContent(screen);
+	private TabPanelContent createClothing() {
+		TabPanelContent tpc = new TabPanelContent(screen);
 		tpc.setLayoutManager(new BorderLayout(8, 8));
 
-		clothing = new Element(screen);
+		clothing = new BaseElement(screen);
 		clothing.setAsContainerOnly();
 		clothing.setLayoutManager(new MigLayout(screen, "wrap 2", "[shrink 0][grow]", "[]push[]push"));
 
 		// Filter
-		clothing.addChild(new Label("Filter", screen));
-		clothingFilter = new TextField(screen) {
-			@Override
-			public void controlKeyReleaseHook(KeyInputEvent evt, String text) {
-				refilterClothing();
-			}
-		};
-		clothing.addChild(clothingFilter, "growx");
+		clothing.addElement(new Label("Filter", screen));
+		clothingFilter = new TextField(screen);
+		clothingFilter.onMouseReleased(evt -> refilterClothing());
+		clothing.addElement(clothingFilter, "growx");
 
 		// Clothing
-		Element c = new Element(screen);
+		BaseElement c = new BaseElement(screen);
 		c.setLayoutManager(new MigLayout(screen, "wrap 6, gap 2, ins 0",
 				"[shrink 0][120::,grow]4[180:180:][::16,shrink 0][::16,shrink 0][::16,shrink 0]", "[]"));
-		clothing.addChild(c, "growx, growy, span 2");
+		clothing.addElement(c, "growx, growy, span 2");
 
 		createClothingRow("Armor Set", null, c);
 		for (Region region : Region.values()) {
@@ -1018,29 +949,24 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		clothingNotSupportedMessage.setTextAlign(BitmapFont.Align.Center);
 
 		// Tab content
-		tpc.addChild(clothing, BorderLayout.Border.CENTER);
-		tpc.addChild(clothingNotSupportedMessage, BorderLayout.Border.CENTER);
+		tpc.addElement(clothing, Border.CENTER);
+		tpc.addElement(clothingNotSupportedMessage, Border.CENTER);
 
 		return tpc;
 	}
 
 	private void refilterClothing() {
-		adjust(true);
 		String filterText = clothingFilter.getText().toLowerCase();
 		boolean changed = false;
-		try {
-			if (refilterAssets(clothingSet, filterText, null)) {
+		if (refilterAssets(clothingSet, filterText, null)) {
+			changed = true;
+		}
+		for (Map.Entry<Region, ComboBox<ClothingTemplate>> en : assetChoosers.entrySet()) {
+			ComboBox<ClothingTemplate> asset = en.getValue();
+			Region type = en.getKey();
+			if (refilterAssets(asset, filterText, type)) {
 				changed = true;
 			}
-			for (Map.Entry<Region, ComboBox<ClothingTemplate>> en : assetChoosers.entrySet()) {
-				ComboBox<ClothingTemplate> asset = en.getValue();
-				Region type = en.getKey();
-				if (refilterAssets(asset, filterText, type)) {
-					changed = true;
-				}
-			}
-		} finally {
-			adjust(false);
 		}
 		LOG.info("Changed = " + changed);
 
@@ -1053,8 +979,11 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	private boolean refilterAssets(ComboBox<ClothingTemplate> asset, String filterText, Region type) {
 		LOG.info(String.format("Refiltering available clothing using '%s' as filter for region %s", filterText, type));
 		Object sel = asset.getSelectIndex() > -1 ? asset.getSelectedListItem().getValue() : null;
-		asset.removeAllListItems();
-		asset.addListItem("None", null, false, false);
+		asset.invalidate();
+		asset.runAdjusting(() -> {
+			asset.removeAllListItems();
+			asset.addListItem("None", null);
+		});
 		int found = sel != null && sel.equals(0) ? 0 : -1;
 		int index = 1;
 		clothingDef.loadAll(assetManager);
@@ -1063,7 +992,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 			if (key != null && key.getName() != null) {
 				if ((filterText.equals("") || (key.getName().toLowerCase().contains(filterText)))
 						&& (type == null || def.getRegions().containsKey(type))) {
-					asset.addListItem(key.getName(), def, false, false);
+					asset.addListItem(key.getName(), def);
 					if (key.getName().equals(sel)) {
 						found = index;
 					}
@@ -1072,68 +1001,73 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 			}
 		}
 		if (found == -1) {
-			asset.setSelectedIndex(Math.min(1, asset.getListItems().size()));
+			asset.runAdjusting(() -> asset.setSelectedIndex(Math.min(1, asset.getListItems().size())));
 		}
-		asset.pack(false);
+		asset.validate();
 		return found > 0;
 	}
 
-	private XTabPanelContent createBody() {
+	private TabPanelContent createBody() {
 
-		Container top = new Container(screen);
+		StyledContainer top = new StyledContainer(screen);
 		top.setLayoutManager(new MigLayout(screen, "ins 0", "[][grow,fill][]", "[]"));
-		top.addChild(new Label("Filter", screen));
-		bodyFilter = new TextField(screen) {
-			@Override
-			public void controlKeyPressHook(KeyInputEvent evt, String text) {
-				super.controlKeyPressHook(evt, text);
-				refilterBody();
+		top.addElement(new Label("Filter", screen));
+		bodyFilter = new TextField(screen);
+		bodyFilter.onChange(evt -> {
+			if (bodyFilterTimer != null)
+				bodyFilterTimer.cancel();
+			bodyFilterTimer = ToolKit.get().getAlarm().timed(new Callable<Void>() {
+				@Override
+				public Void call() throws Exception {
+					refilterBody();
+					return null;
+				}
+			}, 1f);
+		});
+		top.addElement(bodyFilter);
+		PushButton clear = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
-		top.addChild(bodyFilter);
-		FancyButton clear = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				bodyFilter.setText("");
-				refilterBody();
-			}
-		};
+		clear.onMouseReleased(evt -> {
+			bodyFilter.setText("");
+			refilterBody();
+		});
 		clear.setText("Clear");
-		top.addChild(clear);
+		top.addElement(clear);
 
 		// Left side
-		bodyTemplate = new Table(screen) {
-			@Override
-			public void onChange() {
-				if (!adjusting) {
-
-					// Determine type and template to use
-					TableRow row = getSelectedRow();
-					CreatureKey c = (CreatureKey) row.getValue();
-					if (undoManager == null) {
-						selectCreature(c);
-					} else {
-						undoManager.storeAndExecute(new SelectTypeCommand(c));
-					}
-				}
-			}
-		};
-		bodyTemplate.setMinDimensions(new Vector2f(200, 200));
+		bodyTemplate = new Table(screen);
+		bodyTemplate.setMinDimensions(new Size(200, 200));
 		bodyTemplate.setEnableKeyboardNavigation(true);
 		bodyTemplate.addColumn("Body Template");
 		bodyTemplate.setHeadersVisible(false);
 		bodyTemplate.setSelectionMode(Table.SelectionMode.ROW);
 		refilterBody();
+		bodyTemplate.onChanged(evt -> {
+			if (!evt.getSource().isAdjusting()) {
+
+				// Determine type and template to use
+				TableRow row = evt.getSource().getSelectedRow();
+				CreatureKey c = (CreatureKey) row.getValue();
+				if (undoManager == null) {
+					selectCreature(c);
+				} else {
+					undoManager.storeAndExecute(new SelectTypeCommand(c));
+				}
+			}
+		});
 
 		// Right side
-		bipedDetails = new Element(screen);
+		bipedDetails = new BaseElement(screen);
 		bipedDetails.setLayoutManager(new MigLayout(screen, "ins 0, wrap 2", "[][]"));
 		bipedDetails.setAsContainerOnly();
 
 		// Size
 		Label label = new Label(screen);
 		label.setText("Prop");
-		bipedDetails.addChild(label);
+		bipedDetails.addElement(label);
 		prop = new AutocompleteTextField<String>(screen, new AutocompleteSource<String>() {
 			public List<AutocompleteItem<String>> getItems(String text) {
 				text = text.toLowerCase();
@@ -1163,178 +1097,163 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		};
 		prop.setToolTipText("Type in partial prop name and press CTRL+SPACE to autocomplete");
 		prop.setLabel(label);
-		bipedDetails.addChild(prop, "growx");
+		bipedDetails.addElement(prop, "growx");
 
 		// Size
 		label = new Label(screen);
 		label.setText("Size");
-		bipedDetails.addChild(label);
-		size = new Spinner<Float>(screen, Spinner.Orientation.HORIZONTAL, true) {
-			@Override
-			public void onChange(Float value) {
-				if (undoManager == null) {
-					try {
-						creature.getAppearance().setSize((Float) value);
-						tweakUpdated(CreatureEditorAppState.Type.SIZE);
-					} catch (Exception e) {
-						LOG.log(Level.SEVERE, "Failed to update size.", e);
-					}
-				} else {
-					undoManager.storeAndExecute(new ChangeSizeCommand((Float) value));
-				}
-			}
-		};
+		bipedDetails.addElement(label);
+		size = new Spinner<Float>(screen, Orientation.HORIZONTAL, true);
 		size.setSpinnerModel(new FloatRangeSpinnerModel(0.01f, 1000f, 0.1f, 1f));
+		size.onChange(evt -> {
+			if (undoManager == null) {
+				try {
+					creature.getAppearance().setSize(evt.getNewValue());
+					tweakUpdated(CreatureEditorAppState.Type.SIZE);
+				} catch (Exception e) {
+					LOG.log(Level.SEVERE, "Failed to update size.", e);
+				}
+			} else {
+				undoManager.storeAndExecute(new ChangeSizeCommand(evt.getNewValue()));
+			}
+		});
 		size.setLabel(label);
-		bipedDetails.addChild(size);
+		bipedDetails.addElement(size);
 
 		// Ear Size
 		label = new Label(screen);
 		label.setText("Ears");
-		bipedDetails.addChild(label);
-		earSize = new Spinner<Float>(screen, Spinner.Orientation.HORIZONTAL, true) {
-			@Override
-			public void onChange(Float value) {
-				if (undoManager == null) {
-					try {
-						creature.getAppearance().setEarSize(value);
-						tweakUpdated(CreatureEditorAppState.Type.EAR_SIZE);
-					} catch (Exception e) {
-						LOG.log(Level.SEVERE, "Failed to update ear size.", e);
-					}
-				} else {
-					undoManager.storeAndExecute(new ChangeEarSizeCommand(value));
-				}
-
-			}
-		};
+		bipedDetails.addElement(label);
+		earSize = new Spinner<Float>(screen, Orientation.HORIZONTAL, true);
 		earSize.setSpinnerModel(new FloatRangeSpinnerModel(0.01f, 10f, 0.1f, 1f));
+		earSize.onChange(evt -> {
+			if (undoManager == null) {
+				try {
+					creature.getAppearance().setEarSize(evt.getNewValue());
+					tweakUpdated(CreatureEditorAppState.Type.EAR_SIZE);
+				} catch (Exception e) {
+					LOG.log(Level.SEVERE, "Failed to update ear size.", e);
+				}
+			} else {
+				undoManager.storeAndExecute(new ChangeEarSizeCommand(evt.getNewValue()));
+			}
+		});
 		earSize.setLabel(label);
-		bipedDetails.addChild(earSize);
+		bipedDetails.addElement(earSize);
 
 		// Tail Size
 		label = new Label(screen);
 		label.setText("Tail");
-		bipedDetails.addChild(label);
+		bipedDetails.addElement(label);
 
-		tailSize = new Spinner<Float>(screen, Spinner.Orientation.HORIZONTAL, true) {
-			@Override
-			public void onChange(Float value) {
-				if (undoManager == null) {
-					try {
-						creature.getAppearance().setTailSize(value);
-						tweakUpdated(CreatureEditorAppState.Type.TAIL_SIZE);
-					} catch (Exception e) {
-						LOG.log(Level.SEVERE, "Failed to update tail size.", e);
-					}
-				} else {
-					undoManager.storeAndExecute(new ChangeTailSizeCommand(value));
-				}
-			}
-		};
+		tailSize = new Spinner<Float>(screen, Orientation.HORIZONTAL, true);
 		tailSize.setSpinnerModel(new FloatRangeSpinnerModel(0.01f, 10f, 0.1f, 1f));
+		tailSize.onChange(evt -> {
+			if (undoManager == null) {
+				try {
+					creature.getAppearance().setTailSize(evt.getNewValue());
+					tweakUpdated(CreatureEditorAppState.Type.TAIL_SIZE);
+				} catch (Exception e) {
+					LOG.log(Level.SEVERE, "Failed to update tail size.", e);
+				}
+			} else {
+				undoManager.storeAndExecute(new ChangeTailSizeCommand(evt.getNewValue()));
+			}
+		});
 		tailSize.setLabel(label);
-		bipedDetails.addChild(tailSize);
+		bipedDetails.addElement(tailSize);
 
 		// Gender
 		label = new Label(screen);
 		label.setText("Gender");
-		bipedDetails.addChild(label);
-		gender = new ComboBox<Gender>(screen) {
-			@Override
-			public void onChange(int selectedIndex, Gender value) {
-				if (!adjusting) {
-					if (undoManager == null) {
-						creature.getAppearance().setGender(value);
-						recreateAndFireUpdateModels();
-					} else {
-						undoManager.storeAndExecute(new ChangeGenderCommand(value));
-					}
-				}
-			}
-		};
+		bipedDetails.addElement(label);
+		gender = new ComboBox<Gender>(screen);
 		for (Appearance.Gender g : Appearance.Gender.values()) {
 			gender.addListItem(Icelib.toEnglish(g), g);
 		}
+		gender.onChange(evt -> {
+			if (!evt.getSource().isAdjusting()) {
+				if (undoManager == null) {
+					creature.getAppearance().setGender(evt.getNewValue());
+					recreateAndFireUpdateModels();
+				} else {
+					undoManager.storeAndExecute(new ChangeGenderCommand(evt.getNewValue()));
+				}
+			}
+		});
 		gender.setLabel(label);
-		bipedDetails.addChild(gender);
+		bipedDetails.addElement(gender);
 
 		// Body Type
 		label = new Label(screen);
 		label.setText("Body Type");
-		bipedDetails.addChild(label);
-		bodyType = new ComboBox<Body>(screen) {
-			@Override
-			public void onChange(int selectedIndex, Body value) {
-				if (!adjusting) {
-					if (undoManager == null) {
-						creature.getAppearance().setBody((Appearance.Body) value);
-						recreateAndFireUpdateModels();
-					} else {
-						undoManager.storeAndExecute(new ChangeBodyCommand((Appearance.Body) value));
-					}
-				}
-			}
-		};
+		bipedDetails.addElement(label);
+		bodyType = new ComboBox<Body>(screen);
 		for (Appearance.Body g : Appearance.Body.values()) {
 			bodyType.addListItem(Icelib.toEnglish(g), g);
 		}
+		bodyType.onChange(evt -> {
+			if (!evt.getSource().isAdjusting()) {
+				if (undoManager == null) {
+					creature.getAppearance().setBody(evt.getNewValue());
+					recreateAndFireUpdateModels();
+				} else {
+					undoManager.storeAndExecute(new ChangeBodyCommand(evt.getNewValue()));
+				}
+			}
+		});
 		bodyType.setLabel(label);
-		bipedDetails.addChild(bodyType);
+		bipedDetails.addElement(bodyType);
 
 		// Race
 		label = new Label(screen);
 		label.setText("Race");
-		bipedDetails.addChild(label);
-		race = new ComboBox<Race>(screen) {
-			@Override
-			public void onChange(int selectedIndex, Race value) {
-				if (!adjusting) {
-					if (undoManager == null) {
-						creature.getAppearance().setRace(value);
-						recreateAndFireUpdateModels();
-					} else {
-						undoManager.storeAndExecute(new ChangeRaceCommand(value));
-					}
-				}
-			}
-		};
+		bipedDetails.addElement(label);
+		race = new ComboBox<Race>(screen);
 		for (Appearance.Race g : Appearance.Race.values()) {
 			race.addListItem(Icelib.toEnglish(g), g);
 		}
+		race.onChange(evt -> {
+			if (!evt.getSource().isAdjusting()) {
+				if (undoManager == null) {
+					creature.getAppearance().setRace(evt.getNewValue());
+					recreateAndFireUpdateModels();
+				} else {
+					undoManager.storeAndExecute(new ChangeRaceCommand(evt.getNewValue()));
+				}
+			}
+		});
 		race.setLabel(label);
-		bipedDetails.addChild(race);
+		bipedDetails.addElement(race);
 
 		// Head
 		label = new Label(screen);
 		label.setText("Head");
-		bipedDetails.addChild(label);
-		head = new ComboBox<Head>(screen) {
-			@Override
-			public void onChange(int selectedIndex, Head value) {
-				if (!adjusting) {
-					if (undoManager == null) {
-						creature.getAppearance().setHead((Appearance.Head) value);
-						recreateAndFireUpdateModels();
-					} else {
-						undoManager.storeAndExecute(new ChangeHeadCommand((Appearance.Head) value));
-					}
-				}
-			}
-		};
+		bipedDetails.addElement(label);
+		head = new ComboBox<Head>(screen);
 		for (Appearance.Head g : Appearance.Head.values()) {
 			head.addListItem(Icelib.toEnglish(g), g);
 		}
+		head.onChange(evt -> {
+			if (!evt.getSource().isAdjusting()) {
+				if (undoManager == null) {
+					creature.getAppearance().setHead(evt.getNewValue());
+					recreateAndFireUpdateModels();
+				} else {
+					undoManager.storeAndExecute(new ChangeHeadCommand(evt.getNewValue()));
+				}
+			}
+		});
 		head.setLabel(label);
-		bipedDetails.addChild(head);
+		bipedDetails.addElement(head);
 
 		// This
 
-		XTabPanelContent tpc = new XTabPanelContent(screen);
+		TabPanelContent tpc = new TabPanelContent(screen);
 		tpc.setLayoutManager(new MigLayout(screen, "fill", "[grow, fill][shrink 0]", "[shrink 0][grow]"));
-		tpc.addChild(top, "span 2, wrap");
-		tpc.addChild(bodyTemplate, "growy");
-		tpc.addChild(bipedDetails);
+		tpc.addElement(top, "span 2, wrap");
+		tpc.addElement(bodyTemplate, "growy");
+		tpc.addElement(bipedDetails);
 
 		return tpc;
 	}
@@ -1345,17 +1264,17 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		kk.add(PROP_KEY);
 		kk.addAll(CreatureKey.getAll("Horde", assetManager));
 		kk.addAll(CreatureKey.getAll("Boss", assetManager));
+		bodyTemplate.invalidate();
 		bodyTemplate.removeAllRows();
-
 		for (CreatureKey k : kk) {
 			if (bodyMatches(k)) {
-				TableRow row = new Table.TableRow(screen, bodyTemplate, UIDUtil.getUID(), k);
-				Table.TableCell cell = new Table.TableCell(screen, k.getText(), k);
-				row.addChild(cell, null, false, false);
-				bodyTemplate.addRow(row, false);
+				TableRow row = new TableRow(screen, bodyTemplate, k);
+				TableCell cell = new TableCell(screen, k.getText(), k);
+				row.addElement(cell);
+				bodyTemplate.addRow(row);
 			}
 		}
-		bodyTemplate.pack();
+		bodyTemplate.validate();
 	}
 
 	private boolean bodyMatches(CreatureKey k) {
@@ -1370,6 +1289,9 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		Appearance newAppearance = new Appearance();
 
 		Appearance.Name newType = Appearance.Name.C2;
+		if (key == null)
+			key = BIPED_KEY;
+
 		if (key == BIPED_KEY) {
 			newAppearance.setSize(1f);
 			newAppearance.setRace(Appearance.Race.HART);
@@ -1389,7 +1311,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		creature.setAppearance(newAppearance);
 
 		// Update preview spatial, and inform listeners if synching
-		if (syncWithSelection.getIsChecked()) {
+		if (syncWithSelection.isChecked()) {
 			// If synching, we expect something to call {@link
 			// CreatureEditorAppState#setTargetCreatureSpatial}
 			// which will update the local preview model as well
@@ -1432,24 +1354,25 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 				}
 			}
 			effectName = item.getEffect();
-			attachmentPoint.setSelectedByValue(node, false);
+			final AttachmentPoint fNode = node;
+			attachmentPoint.runAdjusting(() -> attachmentPoint.setSelectedByValue(fNode));
 			if (attachableTemplate.isParticle()) {
-				attachmentColours.setIsVisible(false);
+				attachmentColours.setVisible(false);
 			} else {
-				attachmentColours.setIsVisible(true);
+				attachmentColours.setVisible(true);
 				attachmentColours.setAttachment(item);
 			}
-			attachmentDetails.setIsVisible(true);
-			cloneAttachment.setIsEnabled(true);
-			editAttachment.setIsEnabled(app.getAssets().getExternalAssetFile(item.getKey().getPath()).exists());
+			attachmentDetails.setVisible(true);
+			cloneAttachment.setEnabled(true);
+			editAttachment.setEnabled(app.getAssets().getExternalAssetFile(item.getKey().getPath()).exists());
 		} else {
-			attachmentDetails.setIsVisible(false);
-			attachmentColours.setIsVisible(false);
-			cloneAttachment.setIsEnabled(false);
-			editAttachment.setIsEnabled(false);
+			attachmentDetails.setVisible(false);
+			attachmentColours.setVisible(false);
+			cloneAttachment.setEnabled(false);
+			editAttachment.setEnabled(false);
 		}
-		attachmentPoint.setIsEnabled(node != null);
-		chooseEffect.setIsEnabled(node != null);
+		attachmentPoint.setEnabled(node != null);
+		chooseEffect.setEnabled(node != null);
 		if (effectName != null) {
 			effect.setText(effectName);
 		} else {
@@ -1457,98 +1380,103 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		}
 	}
 
-	private XTabPanelContent createAttachments() {
+	private TabPanelContent createAttachments() {
 		LOG.info("Creating attachments");
 
-		XTabPanelContent tpc = new XTabPanelContent(screen);
+		TabPanelContent tpc = new TabPanelContent(screen);
 		tpc.setLayoutManager(new BorderLayout(8, 8));
 
-		attachmentsPanel = new Element(screen);
+		attachmentsPanel = new BaseElement(screen);
 		attachmentsPanel.setAsContainerOnly();
 		attachmentsPanel.setLayoutManager(new MigLayout(screen, "fill, wrap 2", "[grow][shrink 0]", "[grow]"));
 
 		// Attachments
 
-		attachments = new Table(screen) {
-			@Override
-			public void onChange() {
-				if (!adjusting) {
-					updateAttachmentDetails();
-				}
+		attachments = new Table(screen);
+		attachments.onChanged(evt -> {
+			if (!evt.getSource().isAdjusting()) {
+				updateAttachmentDetails();
 			}
-		};
+		});
 		attachments.setColumnResizeMode(Table.ColumnResizeMode.AUTO_FIRST);
 		attachments.addColumn("Attachment");
 		attachments.addColumn("Point");
 
 		// Sequences buttons
-		Element attachmentActions = new Element(screen);
+		BaseElement attachmentActions = new BaseElement(screen);
 		attachmentActions.setLayoutManager(new MigLayout(screen, "wrap 1", "[grow]", "[][][][][]"));
 
 		// Add new attachment
-		ButtonAdapter add = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				addAttachment();
+		PushButton add = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		add.onMouseReleased(evt -> addAttachment());
 		add.setText("Add");
-		attachmentActions.addChild(add, "growx");
+		attachmentActions.addElement(add, "growx");
 
 		// Remove attachment
-		ButtonAdapter remove = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				List<AttachmentItem> attachmentItems = creature.getAppearance().getAttachments();
-				List<Integer> rows = attachments.getSelectedRowIndexes();
-				Collections.sort(rows);
-				Collections.reverse(rows);
-				for (int r : rows) {
-					attachmentItems.remove(r);
-				}
-				creature.getAppearance().setAttachments(attachmentItems);
-				recreateAndFireUpdateModels();
-				updateForms();
+		PushButton remove = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		remove.onMouseReleased(evt -> {
+
+			List<AttachmentItem> attachmentItems = creature.getAppearance().getAttachments();
+			List<Integer> rows = attachments.getSelectedRowIndexes();
+			Collections.sort(rows);
+			Collections.reverse(rows);
+			for (int r : rows) {
+				attachmentItems.remove(r);
+			}
+			creature.getAppearance().setAttachments(attachmentItems);
+			recreateAndFireUpdateModels();
+			updateForms();
+		});
 		remove.setText("Remove");
-		attachmentActions.addChild(remove, "growx");
+		attachmentActions.addElement(remove, "growx");
 
 		// Copy attachment
-		ButtonAdapter copy = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				AttachmentItem sel = getSelectedAttachmentItem();
-				if (sel != null) {
-					screen.setClipboardText(sel.toSerializable().toString());
-				}
+		PushButton copy = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		copy.onMouseReleased(evt -> {
+			AttachmentItem sel = getSelectedAttachmentItem();
+			if (sel != null) {
+				ToolKit.get().setClipboardText(sel.toSerializable().toString());
+			}
+		});
 		copy.setText("Copy");
-		attachmentActions.addChild(copy, "growx");
+		attachmentActions.addElement(copy, "growx");
 
 		// Paste
-		ButtonAdapter paste = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				int r = attachments.getSelectedRowIndex();
-				if (r > -1) {
-					final List<AttachmentItem> attachmentItems = creature.getAppearance().getAttachments();
-					try {
-						SquirrelTable eo = SquirrelInterpretedTable.table(screen.getClipboardText());
-						AttachmentItem newItem = AttachmentItem.createAttachment(eo);
-						attachmentItems.set(r, newItem);
-						creature.getAppearance().setAttachments(attachmentItems);
-						updateForms();
-						recreateAndFireUpdateModels();
-					} catch (Exception e) {
-						LOG.log(Level.SEVERE, "Failed to parse creature appearance.", e);
-					}
-				}
+		PushButton paste = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		paste.onMouseReleased(evt -> {
+			int r = attachments.getSelectedRowIndex();
+			if (r > -1) {
+				final List<AttachmentItem> attachmentItems = creature.getAppearance().getAttachments();
+				try {
+					SquirrelTable eo = SquirrelInterpretedTable.table(ToolKit.get().getClipboardText());
+					AttachmentItem newItem = AttachmentItem.createAttachment(eo);
+					attachmentItems.set(r, newItem);
+					creature.getAppearance().setAttachments(attachmentItems);
+					updateForms();
+					recreateAndFireUpdateModels();
+				} catch (Exception e) {
+					LOG.log(Level.SEVERE, "Failed to parse creature appearance.", e);
+				}
+			}
+		});
 		paste.setText("Paste");
-		attachmentActions.addChild(paste, "growx");
+		attachmentActions.addElement(paste, "growx");
 
 		// Attachment point
 		final List<AttachmentPoint> asList = Arrays.asList(AttachmentPoint.values());
@@ -1557,93 +1485,88 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 				return o1.name().compareTo(o2.name());
 			}
 		});
-		attachmentPoint = new ComboBox<AttachmentPoint>(screen, asList.toArray(new AttachmentPoint[0])) {
-			@Override
-			public void onChange(int selectedIndex, AttachmentPoint value) {
-				if (!adjusting) {
-					int r = attachments.getSelectedRowIndex();
-					if (r > -1) {
-						final List<AttachmentItem> attachmentItems = creature.getAppearance().getAttachments();
-						final AttachmentItem item = attachmentItems.get(r);
-						AttachmentPoint sel = attachmentPoint.getSelectIndex() > -1
-								? (AttachmentPoint) attachmentPoint.getSelectedListItem().getValue() : null;
-						item.setNode(sel);
-						creature.getAppearance().setAttachments(attachmentItems);
-						recreateAndFireUpdateModels();
-						updateForms();
-						attachments.setSelectedRowIndex(r);
-					}
-				}
+		attachmentPoint = new ComboBox<AttachmentPoint>(screen, asList.toArray(new AttachmentPoint[0]));
+		attachmentPoint.onChange(evt -> {
+			int r = attachments.getSelectedRowIndex();
+			if (r > -1) {
+				final List<AttachmentItem> attachmentItems = creature.getAppearance().getAttachments();
+				final AttachmentItem item = attachmentItems.get(r);
+				AttachmentPoint sel = attachmentPoint.getSelectIndex() > -1
+						? (AttachmentPoint) attachmentPoint.getSelectedListItem().getValue() : null;
+				item.setNode(sel);
+				creature.getAppearance().setAttachments(attachmentItems);
+				recreateAndFireUpdateModels();
+				updateForms();
+				attachments.setSelectedRowIndex(r);
 			}
-		};
+		});
 		for (AttachmentPoint ap : asList) {
-			attachmentPoint.addListItem(Icelib.toEnglish(ap, true), ap, false, false);
+			attachmentPoint.addListItem(Icelib.toEnglish(ap, true), ap);
 		}
-		attachmentPoint.pack(false);
 
 		// Effect
 		effect = new TextField(screen);
 
-		chooseEffect = new ButtonAdapter(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				selectParticle();
-			}
-		};
+		chooseEffect = new PushButton(screen);
+		chooseEffect.onMouseReleased(evt -> selectParticle());
 		chooseEffect.setText("..");
-		effect.setIsEnabled(false);
+		effect.setEnabled(false);
 
 		// Clone
-		cloneAttachment = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				AttachmentItem sel = getSelectedAttachmentItem();
-				if (sel != null) {
-					CloneItemWindow cw = new CloneItemWindow(screen) {
-						protected void onCreate(AttachableTemplate newDef, File assetsDir) throws IOException {
-							super.onCreate(newDef, assetsDir);
-							Appearance appearance = creature.getAppearance();
-							appearance.removeAttachment(sel);
-							sel.setKey(newDef.getKey());
-							appearance.addAttachment(sel);
-							updateForms();
-							recreateAndFireUpdateModels();
-						}
-					};
-					cw.setItem(attachableDef.get(sel.getKey()));
-					AttachmentPoint node = sel.getNode();
-					if (node == null) {
-						if (attachableTemplate != null) {
-							node = attachableTemplate.getAttachPoints().get(0);
-						}
-					}
-					cw.setAttachmentPoint(node);
-				}
+		cloneAttachment = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		cloneAttachment.onMouseReleased(evt -> {
+			AttachmentItem sel = getSelectedAttachmentItem();
+			if (sel != null) {
+				CloneItemWindow cw = new CloneItemWindow(screen) {
+					protected void onCreate(AttachableTemplate newDef, File assetsDir) throws IOException {
+						super.onCreate(newDef, assetsDir);
+						Appearance appearance = creature.getAppearance();
+						appearance.removeAttachment(sel);
+						sel.setKey(newDef.getKey());
+						appearance.addAttachment(sel);
+						updateForms();
+						recreateAndFireUpdateModels();
+					}
+				};
+				cw.setItem(attachableDef.get(sel.getKey()));
+				AttachmentPoint node = sel.getNode();
+				if (node == null) {
+					if (attachableTemplate != null) {
+						node = attachableTemplate.getAttachPoints().get(0);
+					}
+				}
+				cw.setAttachmentPoint(node);
+			}
+		});
 		cloneAttachment.setText("Clone");
 		cloneAttachment.setToolTipText("Clone this item to a local copy so you can edit it.");
 
 		// Edit
-		editAttachment = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				AttachmentItem sel = getSelectedAttachmentItem();
-				if (sel != null) {
-					AttachableTemplate def = attachableDef.get(sel.getKey());
-					editItem(def);
-				}
+		editAttachment = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		editAttachment.onMouseReleased(evt -> {
+			AttachmentItem sel = getSelectedAttachmentItem();
+			if (sel != null) {
+				AttachableTemplate def = attachableDef.get(sel.getKey());
+				editItem(def);
+			}
+		});
 		editAttachment.setText("Edit");
 		editAttachment.setToolTipText(
 				"Edit this items textures, models and colour maps. Only enabled when you are working on a cloned item.");
 
 		// Item actions
-		Container itemActions = new Container(screen);
+		StyledContainer itemActions = new StyledContainer(screen);
 		itemActions.setLayoutManager(new MigLayout(screen, "", "push[][]push", "[]"));
-		itemActions.addChild(cloneAttachment);
-		itemActions.addChild(editAttachment);
+		itemActions.addElement(cloneAttachment);
+		itemActions.addElement(editAttachment);
 
 		// Colours
 		attachmentColours = new AttachmentColourBar(screen, creature) {
@@ -1661,58 +1584,57 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		};
 
 		// Details
-		attachmentDetails = new Element(screen);
-		attachmentDetails.setLayoutManager(new MigLayout(screen, "fill, wrap 4", "[shrink 0][grow][shrink 0][:200:]", "[][][][]"));
-		attachmentDetails.addChild(new Label("Point:", screen));
-		attachmentDetails.addChild(attachmentPoint, "span 2, growx");
-		attachmentDetails.addChild(new Label("Colours", screen), "ax 50%, wrap");
-		attachmentDetails.addChild(new Label("Effect:", screen));
-		attachmentDetails.addChild(effect, "growx");
-		attachmentDetails.addChild(chooseEffect);
-		attachmentDetails.addChild(attachmentColours, "ax 50%");
-		attachmentDetails.addChild(itemActions, "span 4, growx");
+		attachmentDetails = new BaseElement(screen);
+		attachmentDetails.setLayoutManager(
+				new MigLayout(screen, "fill, wrap 4", "[shrink 0][grow][shrink 0][:200:]", "[][][][]"));
+		attachmentDetails.addElement(new Label("Point:", screen));
+		attachmentDetails.addElement(attachmentPoint, "span 2, growx");
+		attachmentDetails.addElement(new Label("Colours", screen), "ax 50%, wrap");
+		attachmentDetails.addElement(new Label("Effect:", screen));
+		attachmentDetails.addElement(effect, "growx");
+		attachmentDetails.addElement(chooseEffect);
+		attachmentDetails.addElement(attachmentColours, "ax 50%");
+		attachmentDetails.addElement(itemActions, "span 4, growx");
 
 		// This
-		attachmentsPanel.addChild(attachments, "growx, growy");
-		attachmentsPanel.addChild(attachmentActions);
-		attachmentsPanel.addChild(attachmentDetails, "span 2, growx");
+		attachmentsPanel.addElement(attachments, "growx, growy");
+		attachmentsPanel.addElement(attachmentActions);
+		attachmentsPanel.addElement(attachmentDetails, "span 2, growx");
 
 		// Not supported messages
 		attachmentsNotSupportedMessage = new Label("Attachments are not supported on this creature type", screen);
 		attachmentsNotSupportedMessage.setTextAlign(BitmapFont.Align.Center);
 
 		// Tab content
-		tpc.addChild(attachmentsPanel, BorderLayout.Border.CENTER);
-		tpc.addChild(attachmentsNotSupportedMessage, BorderLayout.Border.CENTER);
+		tpc.addElement(attachmentsPanel, Border.CENTER);
+		tpc.addElement(attachmentsNotSupportedMessage, Border.CENTER);
 		return tpc;
 	}
 
 	private void showSaveMenu(float x, float y) {
-		ZMenu subMenu = new ZMenu(screen) {
-			@Override
-			protected void onItemSelected(ZMenu.ZMenuItem item) {
-				int s = (Integer) item.getValue();
-				if (s == -1) {
-					screen.setClipboardText(creature.getAppearance().toString());
-					info("Saved appearance to clipboard");
-				} else if (s == 0) {
-					try {
-						target.getCreature().getAppearance().parse(creature.getAppearance().toString());
-					} catch (IOException ex) {
-						// Should not happen
-						throw new RuntimeException(ex);
-					}
-					info("Saved appearance to selection");
-					fireUpdateModels();
-				} else {
-					Preferences slotNode = getSlotPreferenceNode(s);
-					slotNode.put("appearance", creature.getAppearance().toString());
-					info(String.format("Saved appearance to selection %d", s));
+		Menu<Integer> subMenu = new Menu<>(screen);
+		subMenu.onChanged((evt) -> {
+			int s = evt.getNewValue().getValue();
+			if (s == -1) {
+				ToolKit.get().setClipboardText(creature.getAppearance().toString());
+				info("Saved appearance to clipboard");
+			} else if (s == 0) {
+				try {
+					target.getCreature().getAppearance().parse(creature.getAppearance().toString());
+				} catch (IOException ex) {
+					// Should not happen
+					throw new RuntimeException(ex);
 				}
+				info("Saved appearance to selection");
+				fireUpdateModels();
+			} else {
+				Preferences slotNode = getSlotPreferenceNode(s);
+				slotNode.put("appearance", creature.getAppearance().toString());
+				info(String.format("Saved appearance to selection %d", s));
 			}
-		};
+		});
 		subMenu.addMenuItem("Save to clipboard", -1);
-		if (target != null && !syncWithSelection.getIsChecked()) {
+		if (target != null && !syncWithSelection.isChecked()) {
 			subMenu.addMenuItem("Save to selected creature", 0);
 		}
 		for (int i = 1; i <= DesignConstants.ALLOWED_SAVEABLE_TWEAK_SETS; i++) {
@@ -1727,37 +1649,34 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	private void showLoadMenu(float x, float y) {
-		ZMenu subMenu = new ZMenu(screen) {
-			@Override
-			protected void onItemSelected(ZMenu.ZMenuItem item) {
-				super.onItemSelected(item);
-				int s = (Integer) item.getValue();
-				try {
-					if (s == -1) {
-						parseAppearanceString(screen.getClipboardText());
-						info("Loaded appearance from clipboard");
-					} else if (s == 0) {
-						loadFromTargetAppearance();
-						info("Loaded appearance from target");
-					} else {
-						parseAppearanceString(getSlotPreferenceNode(s).get("appearance", ""));
-						info(String.format("Loaded appearance from slot %d", s));
-					}
-
-					if (syncWithSelection.getIsChecked()) {
-						for (Listener l : listeners) {
-							l.updateAppearance(CreatureEditorAppState.this, Type.GENERAL);
-						}
-					}
-
-				} catch (Exception ex) {
-					error(String.format("Failed to parse creature appearance.", ex.getMessage()));
-					LOG.log(Level.SEVERE, "Failed to parse creature appearance.", ex);
+		Menu<Integer> subMenu = new Menu<>(screen);
+		subMenu.onChanged((evt) -> {
+			int s = evt.getNewValue().getValue();
+			try {
+				if (s == -1) {
+					parseAppearanceString(ToolKit.get().getClipboardText());
+					info("Loaded appearance from clipboard");
+				} else if (s == 0) {
+					loadFromTargetAppearance();
+					info("Loaded appearance from target");
+				} else {
+					parseAppearanceString(getSlotPreferenceNode(s).get("appearance", ""));
+					info(String.format("Loaded appearance from slot %d", s));
 				}
+
+				if (syncWithSelection.isChecked()) {
+					for (Listener l : listeners) {
+						l.updateAppearance(CreatureEditorAppState.this, Type.GENERAL);
+					}
+				}
+
+			} catch (Exception ex) {
+				error(String.format("Failed to parse creature appearance.", ex.getMessage()));
+				LOG.log(Level.SEVERE, "Failed to parse creature appearance.", ex);
 			}
-		};
+		});
 		subMenu.addMenuItem("Load from clipboard", -1);
-		if (target != null && !syncWithSelection.getIsChecked()) {
+		if (target != null && !syncWithSelection.isChecked()) {
 			subMenu.addMenuItem("Load from selected creature", 0);
 		}
 		for (int i = 1; i <= DesignConstants.ALLOWED_SAVEABLE_TWEAK_SETS; i++) {
@@ -1812,13 +1731,12 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	private void selectParticle() {
-		final FancyButtonWindow<Element> dialog = new FancyButtonWindow<Element>(screen, new Vector2f(15, 15),
-				FancyWindow.Size.SMALL, true) {
-			private CancelButton btnCancel;
+		final ButtonWindow<Element> dialog = new ButtonWindow<Element>(screen, true) {
+			private PushButton btnCancel;
 			private SelectList<String> list;
 			private TextField nameFilter;
 			private ComboBox<String> typeFilter;
-			private boolean adjusting;
+			private AlarmTask refilterTask;
 
 			@Override
 			public void onButtonOkPressed(MouseButtonEvent evt, boolean toggled) {
@@ -1833,19 +1751,19 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 					updateForms();
 					attachments.setSelectedRowIndex(r);
 				}
-				hideWindow();
+				hide();
 			}
 
 			@Override
-			protected void createButtons(Element buttons) {
-				btnCancel = new CancelButton(screen, getUID() + ":btnCancel") {
-					@Override
-					public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-						hideWindow();
+			protected void createButtons(BaseElement buttons) {
+				btnCancel = new PushButton(screen, "Cancel") {
+					{
+						setStyleClass("cancel");
 					}
 				};
+				btnCancel.onMouseReleased(evt -> hide());
 				btnCancel.setText("Cancel");
-				buttons.addChild(btnCancel);
+				buttons.addElement(btnCancel);
 				form.addFormElement(btnCancel);
 				super.createButtons(buttons);
 			}
@@ -1853,60 +1771,59 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 			@Override
 			protected Element createContent() {
 
-				adjust(true);
-				try {
+				Element container = new Element(screen);
+				container.setLayoutManager(new MigLayout(screen, "wrap 2, fill", "[][]", "[][][][]"));
 
-					Element container = new Element(screen);
-					container.setLayoutManager(new MigLayout(screen, "wrap 2, fill", "[][]", "[][][][]"));
+				container.addElement(new Label("Name Filter:", screen));
+				nameFilter = new TextField(screen);
+				nameFilter.onChange(evt -> {
 
-					container.addChild(new Label("Name Filter:", screen));
-					nameFilter = new TextField(screen) {
+					if (refilterTask != null)
+						refilterTask.cancel();
+					refilterTask = ToolKit.get().getAlarm().timed(new Callable<Void>() {
 						@Override
-						public void controlKeyPressHook(KeyInputEvent evt, String text) {
+						public Void call() throws Exception {
 							refilter();
+							return null;
 						}
-					};
-					container.addChild(nameFilter, "growx");
+					}, 1);
+				});
+				container.addElement(nameFilter, "growx");
 
-					container.addChild(new Label("Type Filter:", screen));
-					typeFilter = new ComboBox<String>(screen) {
-						@Override
-						public void onChange(int selectedIndex, String value) {
-							if (!adjusting) {
-								refilter();
-							}
-						}
-					};
-					Set<String> particleFiles = ((ServerAssetManager) app.getAssetManager()).getAssetNamesMatching(".*\\.particle");
-					for (String s : particleFiles) {
-						typeFilter.addListItem(Icelib.toEnglish(Icelib.getBaseFilename(s)), s);
+				container.addElement(new Label("Type Filter:", screen));
+				typeFilter = new ComboBox<String>(screen);
+				typeFilter.onChange(evt -> {
+					if (!evt.getSource().isAdjusting()) {
+						if (refilterTask != null)
+							refilterTask.cancel();
+						refilter();
 					}
-					typeFilter.setSelectedByValue("Particles/attachable.particle", false);
-					container.addChild(typeFilter, "growx");
-
-					list = new SelectList<String>(screen);
-					refilter();
-					container.addChild(list, "span 2");
-					return container;
-				} finally {
-					adjust(false);
+				});
+				Set<String> particleFiles = ((ServerAssetManager) app.getAssetManager())
+						.getAssetNamesMatching(".*\\.particle");
+				for (String s : particleFiles) {
+					typeFilter.addListItem(Icelib.toEnglish(Icelib.getBaseFilename(s)), s);
 				}
+				typeFilter.runAdjusting(() -> typeFilter.setSelectedByValue("Particles/attachable.particle"));
+				container.addElement(typeFilter, "growx");
+
+				list = new SelectList<String>(screen);
+				refilter();
+				container.addElement(list, "span 2");
+				return container;
 
 			}
 
 			private void refilter() {
 				final Object value = typeFilter.getSelectedListItem().getValue();
+				System.out.println("refiltering " + value);
 				if (list == null || typeFilter.getSelectIndex() == -1) {
 					return;
 				}
+				list.invalidate();
 				list.removeAllListItems();
 				String filterText = nameFilter.getText().trim();
 				OGREParticleConfiguration cfg = OGREParticleConfiguration.get(assetManager, (String) value);
-				filterSection(cfg, (String) value, filterText);
-
-			}
-
-			private void filterSection(OGREParticleConfiguration cfg, String sectionName, String filterText) {
 				for (Map.Entry<String, OGREParticleScript> en : cfg.getBackingObject().entrySet()) {
 					String k = en.getValue().getName();
 					if (filterText.equals("") || (filterText.startsWith("~") && k.matches(filterText.substring(1))
@@ -1914,24 +1831,22 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 						list.addListItem(k, k);
 					}
 				}
-				list.pack();
+				list.validate();
 			}
 		};
 		dialog.setDestroyOnHide(true);
-		dialog.getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+		ElementStyle.warningColor(dialog.getDragBar());
 		dialog.setWindowTitle("Select Particle Effect");
 		dialog.setButtonOkText("Select");
-		dialog.sizeToContent();
-		dialog.setIsResizable(false);
-		dialog.setIsMovable(false);
-		UIUtil.center(screen, dialog);
-		screen.addElement(dialog, null, true);
-		dialog.showAsModal(true);
+		dialog.setResizable(false);
+		dialog.setMovable(false);
+		dialog.setModal(true);
+		screen.showElement(dialog, ScreenLayoutConstraints.center);
 
 	}
 
 	private void tweakUpdated(Type type) {
-		if (syncWithSelection.getIsChecked()) {
+		if (syncWithSelection.isChecked()) {
 			if (previewEntity != null) {
 				switch (type) {
 				case SIZE:
@@ -1995,7 +1910,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	private void fireStopAnimation() {
-		if (syncWithSelection.getIsChecked()) {
+		if (syncWithSelection.isChecked()) {
 			for (Listener l : listeners) {
 				l.stopAnimate();
 			}
@@ -2003,7 +1918,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	private void fireAnimationSequence(AnimationRequest request) {
-		if (syncWithSelection.getIsChecked()) {
+		if (syncWithSelection.isChecked()) {
 			for (Listener l : listeners) {
 				l.animate(request);
 			}
@@ -2011,7 +1926,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	private void fireAnimationSpeedChange(float newSpeed) {
-		if (syncWithSelection.getIsChecked()) {
+		if (syncWithSelection.isChecked()) {
 			for (Listener l : listeners) {
 				l.animationSpeedChange(newSpeed);
 			}
@@ -2023,8 +1938,9 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		 * Get the static creature definition
 		 */
 		if (creature.getAppearance().getName().equals(Appearance.Name.C2)) {
-			creatureDefinition = contentDef.get(new CreatureKey("Biped", Icelib.toEnglish(creature.getAppearance().getRace()) + "_"
-					+ Icelib.toEnglish(creature.getAppearance().getGender())));
+			creatureDefinition = contentDef
+					.get(new CreatureKey("Biped", Icelib.toEnglish(creature.getAppearance().getRace()) + "_"
+							+ Icelib.toEnglish(creature.getAppearance().getGender())));
 		} else if (creature.getAppearance().getName().equals(Appearance.Name.N4)) {
 			String bodyTemplate = creature.getAppearance().getBodyTemplate();
 			creatureDefinition = modelDef.get(new CreatureKey(bodyTemplate));
@@ -2036,152 +1952,142 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	private void updateForms() {
 		LOG.info("Updating forms");
 		Appearance appearance = creature == null ? new Appearance() : creature.getAppearance();
-		adjust(true);
 
-		// Update the forms
-		try {
+		// Common stuff
+		name.runAdjusting(() -> name.setText(creature.getDisplayName()));
+		size.runAdjusting(() -> size.setSelectedValue(appearance.getSize()));
 
-			// Common stuff
-			name.setText(creature.getDisplayName());
-			size.setSelectedValue(appearance.getSize());
+		if (appearance.getName().equals(Appearance.Name.C2)) {
+			bodyTemplate.runAdjusting(() -> bodyTemplate.setSelectedRowObjects(Arrays.asList(BIPED_KEY)));
 
-			if (appearance.getName().equals(Appearance.Name.C2)) {
-				bodyTemplate.setSelectedRowObjects(Arrays.asList(BIPED_KEY));
+			// Biped only stuff
+			attachmentsPanel.show();
+			earSize.show();
+			tailSize.show();
+			gender.show();
+			head.show();
+			bodyType.show();
+			race.show();
+			clothing.show();
+			posePanel.show();
+			prop.hide();
 
-				// Biped only stuff
-				attachmentsPanel.show();
-				earSize.show();
-				tailSize.show();
-				gender.show();
-				head.show();
-				bodyType.show();
-				race.show();
-				clothing.show();
-				posePanel.show();
-				prop.hide();
+			clothingNotSupportedMessage.hide();
+			skinNotSupportedMessage.hide();
+			attachmentsNotSupportedMessage.hide();
+			poseNotSupportedMessage.hide();
 
-				clothingNotSupportedMessage.hide();
-				skinNotSupportedMessage.hide();
-				attachmentsNotSupportedMessage.hide();
-				poseNotSupportedMessage.hide();
+			tailSize.runAdjusting(() -> tailSize.setSelectedValue(appearance.getTailSize()));
+			earSize.runAdjusting(() -> earSize.setSelectedValue(appearance.getEarSize()));
+			gender.runAdjusting(() -> gender.setSelectedByValue(appearance.getGender()));
+			head.runAdjusting(() -> head.setSelectedByValue(appearance.getHead()));
+			bodyType.runAdjusting(() -> bodyType.setSelectedByValue(appearance.getBody()));
+			race.runAdjusting(() -> race.setSelectedByValue(appearance.getRace()));
+		} else if (appearance.getName().equals(Appearance.Name.P1)) {
+			bodyTemplate.runAdjusting(() -> bodyTemplate.setSelectedRowObjects(Arrays.asList(PROP_KEY)));
+			prop.setText(appearance.getProp());
 
-				tailSize.setSelectedValue(appearance.getTailSize());
-				earSize.setSelectedValue(appearance.getEarSize());
-				gender.setSelectedByValue(appearance.getGender(), false);
-				head.setSelectedByValue(appearance.getHead(), false);
-				bodyType.setSelectedByValue(appearance.getBody(), false);
-				race.setSelectedByValue(appearance.getRace(), false);
-			} else if (appearance.getName().equals(Appearance.Name.P1)) {
-				prop.setText(appearance.getProp());
+			// Biped only stuff
+			earSize.hide();
+			tailSize.hide();
+			gender.hide();
+			head.hide();
+			bodyType.hide();
+			race.hide();
+			clothing.hide();
+			attachmentsPanel.hide();
+			posePanel.hide();
+			prop.show();
 
-				// Biped only stuff
-				earSize.hide();
-				tailSize.hide();
-				gender.hide();
-				head.hide();
-				bodyType.hide();
-				race.hide();
-				clothing.hide();
-				attachmentsPanel.hide();
-				posePanel.hide();
-				prop.show();
+			clothingNotSupportedMessage.show();
+			skinNotSupportedMessage.show();
+			attachmentsNotSupportedMessage.show();
+			poseNotSupportedMessage.show();
 
-				clothingNotSupportedMessage.show();
-				skinNotSupportedMessage.show();
-				attachmentsNotSupportedMessage.show();
-				poseNotSupportedMessage.show();
+		} else {
+			bodyTemplate.runAdjusting(() -> bodyTemplate
+					.setSelectedRowObjects(Arrays.asList(new CreatureKey(appearance.getBodyTemplate()))));
+			earSize.hide();
+			tailSize.hide();
+			gender.hide();
+			head.hide();
+			bodyType.hide();
+			race.hide();
+			attachmentsPanel.show();
+			posePanel.show();
 
-			} else {
-				try {
-					bodyTemplate.setSelectedRowObjects(Arrays.asList(new CreatureKey(appearance.getBodyTemplate())));
-				} catch (Exception e) {
-					LOG.log(Level.SEVERE, "Failed to select body template.", e);
-				}
-				earSize.hide();
-				tailSize.hide();
-				gender.hide();
-				head.hide();
-				bodyType.hide();
-				race.hide();
-				attachmentsPanel.show();
-				posePanel.show();
-
-				clothingNotSupportedMessage.show();
-				skinNotSupportedMessage.hide();
-				attachmentsNotSupportedMessage.hide();
-				poseNotSupportedMessage.hide();
-				clothing.hide();
-				prop.hide();
-			}
-
-			// Now build the skin elements
-			skinPanel.removeAllChildren();
-			if (creatureDefinition != null) {
-				for (final Map.Entry<String, Skin> en : creatureDefinition.getSkin().entrySet()) {
-					Label cc = new Label(screen);
-					cc.setText(en.getValue().getDisplayName());
-					cc.setToolTipText(en.getKey());
-					RGB color = en.getValue().getDefaultColour();
-					Appearance.SkinElement skinElement = appearance.getSkinElement(en.getKey());
-					if (skinElement != null) {
-						color = skinElement.getColor();
-					}
-					ColorButton cfc = new ColorButton(screen, IceUI.toRGBA(color), false, true) {
-						@Override
-						protected void onChangeColor(ColorRGBA newColor) {
-							creature.getAppearance()
-									.addOrUpdateSkinElement(new Appearance.SkinElement(en.getKey(), IceUI.fromRGBA(newColor)));
-							tweakUpdated(Type.SKIN);
-						}
-					};
-					cfc.setTabs(XColorSelector.ColorTab.values());
-					cfc.setPalette(IceUI.toRGBAList(en.getValue().getPalette()));
-					skinPanel.addChild(cfc);
-					skinPanel.addChild(cc);
-					cfc.setLabel(cc);
-				}
-
-				// Armour
-				List<Region> remaining = new ArrayList<Region>(Arrays.asList(Region.values()));
-				for (ClothingItem item : appearance.getClothing()) {
-					Region region = item.getType().toEquipType().toRegion();
-					ArmourColourBar colourBar = colorChoosers.get(region);
-					ComboBox<ClothingTemplate> combo = assetChoosers.get(region);
-					combo.setSelectedByValue(clothingDef.get(item.getKey()), true);
-					remaining.remove(region);
-				}
-				for (Region r : remaining) {
-					ComboBox<ClothingTemplate> combo = assetChoosers.get(r);
-					combo.setSelectedIndexWithCallback(0);
-				}
-			}
-
-			// Attachments
-			List<Object> selectedAttachments = attachments.getSelectedObjects();
-			attachments.removeAllRows();
-			for (AttachmentItem ai : appearance.getAttachments()) {
-				Table.TableRow row = new Table.TableRow(screen, attachments, ai);
-				row.addCell(ai.getKey().getName(), ai.getKey());
-				AttachmentPoint node = ai.getNode();
-				if (node == null) {
-					AttachableTemplate temp = attachableDef.get(ai.getKey());
-					if (attachableTemplate != null) {
-						node = temp.getAttachPoints().get(0);
-					}
-				}
-				row.addCell(Icelib.toEnglish(node), node);
-				attachments.addRow(row, false);
-			}
-			attachments.setSelectedRowObjects(selectedAttachments);
-			attachments.pack();
-			updateAttachmentDetails();
-
-			window.getContentArea().dirtyLayout(true);
-			window.getContentArea().layoutChildren();
-
-		} finally {
-			adjust(false);
+			clothingNotSupportedMessage.show();
+			skinNotSupportedMessage.hide();
+			attachmentsNotSupportedMessage.hide();
+			poseNotSupportedMessage.hide();
+			clothing.hide();
+			prop.hide();
 		}
+
+		// Now build the skin elements
+		skinPanel.removeAllChildren();
+		if (creatureDefinition != null) {
+			for (final Map.Entry<String, Skin> en : creatureDefinition.getSkin().entrySet()) {
+				Label cc = new Label(screen);
+				cc.setText(en.getValue().getDisplayName());
+				cc.setToolTipText(en.getKey());
+				RGB color = en.getValue().getDefaultColour();
+				Appearance.SkinElement skinElement = appearance.getSkinElement(en.getKey());
+				if (skinElement != null) {
+					color = skinElement.getColor();
+				}
+				ColorButton cfc = new ColorButton(screen, IceUI.toRGBA(color), false, true) {
+					@Override
+					protected void onChangeColor(ColorRGBA newColor) {
+						creature.getAppearance().addOrUpdateSkinElement(
+								new Appearance.SkinElement(en.getKey(), IceUI.fromRGBA(newColor)));
+						tweakUpdated(Type.SKIN);
+					}
+				};
+				cfc.setTabs(ColorSelector.ColorTab.values());
+				cfc.setPalette(IceUI.toRGBAList(en.getValue().getPalette()));
+				skinPanel.addElement(cfc);
+				skinPanel.addElement(cc);
+				cfc.setLabel(cc);
+			}
+
+			// Armour
+			List<Region> remaining = new ArrayList<Region>(Arrays.asList(Region.values()));
+			for (ClothingItem item : appearance.getClothing()) {
+				Region region = item.getType().toEquipType().toRegion();
+				ComboBox<ClothingTemplate> combo = assetChoosers.get(region);
+				combo.runAdjusting(() -> combo.setSelectedByValue(clothingDef.get(item.getKey())));
+				remaining.remove(region);
+			}
+			for (Region r : remaining) {
+				ComboBox<ClothingTemplate> combo = assetChoosers.get(r);
+				combo.setSelectedIndex(0);
+			}
+		}
+
+		// Attachments
+		List<Object> selectedAttachments = attachments.getSelectedObjects();
+		attachments.invalidate();
+		attachments.removeAllRows();
+		for (AttachmentItem ai : appearance.getAttachments()) {
+			TableRow row = new TableRow(screen, attachments, ai);
+			row.addCell(ai.getKey().getName(), ai.getKey());
+			AttachmentPoint node = ai.getNode();
+			if (node == null) {
+				AttachableTemplate temp = attachableDef.get(ai.getKey());
+				if (attachableTemplate != null) {
+					node = temp.getAttachPoints().get(0);
+				}
+			}
+			row.addCell(Icelib.toEnglish(node), node);
+			attachments.addRow(row);
+		}
+		attachments.runAdjusting(() -> attachments.setSelectedRowObjects(selectedAttachments));
+		attachments.validate();
+		updateAttachmentDetails();
+
+		window.getContentArea().dirtyLayout(false, LayoutType.boundsChange());
+		window.getContentArea().layoutChildren();
 	}
 
 	public void setAnimations(Collection<String> anims, Collection<AnimationOption> presets) {
@@ -2197,7 +2103,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	private void recreateAndFireUpdateModels() {
-		if (syncWithSelection.getIsChecked()) {
+		if (syncWithSelection.isChecked()) {
 			try {
 				target.getCreature().getAppearance().parse(creature.getAppearance().toString());
 				fireUpdateModels();
@@ -2226,6 +2132,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 
 		// Create the entity
 		previewEntity = spawnLoader.create(creature);
+		previewEntity.setFixedLighting(Lighting.UNLIT);
 		previewEntity.getSpatial().setLocalTranslation(0, -1.65f, 0);
 		previewEntity.getSpatial().scale(0.25f);
 		previewEntity.getSpatial().rotate(0, FastMath.DEG_TO_RAD * 25f, 0);
@@ -2272,7 +2179,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	@SuppressWarnings("serial")
-	abstract class AbstractSizeCommand implements UndoManager.UndoableCommand {
+	abstract class AbstractSizeCommand implements UndoableCommand {
 
 		private final float size;
 		private float oldSize;
@@ -2314,6 +2221,8 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 
 		@Override
 		void updateSize(float size) {
+			CreatureEditorAppState.this.earSize
+					.runAdjusting(() -> CreatureEditorAppState.this.earSize.setSelectedValue(size));
 			creature.getAppearance().setEarSize(size);
 		}
 
@@ -2332,6 +2241,8 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 
 		@Override
 		void updateSize(float size) {
+			CreatureEditorAppState.this.tailSize
+					.runAdjusting(() -> CreatureEditorAppState.this.tailSize.setSelectedValue(size));
 			creature.getAppearance().setTailSize(size);
 		}
 
@@ -2350,6 +2261,8 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 
 		@Override
 		void updateSize(float size) {
+			CreatureEditorAppState.this.size
+					.runAdjusting(() -> CreatureEditorAppState.this.size.setSelectedValue(size));
 			creature.getAppearance().setSize(size);
 		}
 
@@ -2360,7 +2273,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	@SuppressWarnings("serial")
-	class ChangeGenderCommand implements UndoManager.UndoableCommand {
+	class ChangeGenderCommand implements UndoableCommand {
 
 		private final Appearance.Gender gender;
 		private Appearance.Gender oldGender;
@@ -2382,7 +2295,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	@SuppressWarnings("serial")
-	class ChangeRaceCommand implements UndoManager.UndoableCommand {
+	class ChangeRaceCommand implements UndoableCommand {
 
 		private final Appearance.Race race;
 		private Appearance.Race oldRace;
@@ -2404,7 +2317,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	@SuppressWarnings("serial")
-	class ChangeHeadCommand implements UndoManager.UndoableCommand {
+	class ChangeHeadCommand implements UndoableCommand {
 
 		private final Appearance.Head head;
 		private Appearance.Head oldHead;
@@ -2426,7 +2339,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	@SuppressWarnings("serial")
-	class ChangeBodyCommand implements UndoManager.UndoableCommand {
+	class ChangeBodyCommand implements UndoableCommand {
 
 		private final Appearance.Body body;
 		private Appearance.Body oldBody;
@@ -2448,7 +2361,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 	}
 
 	@SuppressWarnings("serial")
-	class ChangePropCommand implements UndoManager.UndoableCommand {
+	class ChangePropCommand implements UndoableCommand {
 
 		private final String prop;
 		private String oldProp;
@@ -2469,7 +2382,7 @@ public class CreatureEditorAppState extends IcemoonAppState<IcemoonAppState<?>>
 		}
 	}
 
-	class SelectTypeCommand implements UndoManager.UndoableCommand {
+	class SelectTypeCommand implements UndoableCommand {
 
 		private static final long serialVersionUID = 1L;
 		private final CreatureKey type;

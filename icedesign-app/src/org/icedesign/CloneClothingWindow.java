@@ -13,7 +13,9 @@ import org.icescene.ServiceRef;
 import org.icescene.configuration.ClothingDef;
 import org.iceui.controls.UIUtil;
 
-import icetone.core.ElementManager;
+import icetone.core.BaseScreen;
+import icetone.core.ToolKit;
+import icetone.core.Layout.LayoutType;
 
 public class CloneClothingWindow extends AbstractCloneWindow<List<ClothingTemplate>> {
 
@@ -21,7 +23,7 @@ public class CloneClothingWindow extends AbstractCloneWindow<List<ClothingTempla
 	private static ClothingDef clothingDef;
 	private ClothingTemplateKey clothingKey;
 
-	public CloneClothingWindow(ElementManager screen, ClothingTemplateKey clothingKey, List<ClothingTemplate> def) {
+	public CloneClothingWindow(BaseScreen screen, ClothingTemplateKey clothingKey, List<ClothingTemplate> def) {
 		super(screen, def);
 		this.clothingKey = clothingKey;
 		setWindowTitle(String.format("Clone %s", clothingKey.getType()));
@@ -29,17 +31,12 @@ public class CloneClothingWindow extends AbstractCloneWindow<List<ClothingTempla
 
 		// Change the OK button text (annoyingly we have to relayout as well)
 		setButtonOkText("Clone Item");
-		dirtyLayout(true);
-		layoutChildren();
-		sizeToContent();
-		setWidth(300);
-		UIUtil.center(screen, this);
 	}
 
 	protected final void doCloneItem(List<ClothingTemplate> def, String newName) throws IOException {
 		ClothingTemplateKey ctk = clothingKey.clone();
 		ctk.setItem(input.getText());
-		ItemWriter iw = new ItemWriter(app, ctk);
+		ItemWriter iw = new ItemWriter(ToolKit.get().getApplication(), ctk);
 		for (ClothingTemplate originalDefinition : def) {
 			ClothingTemplate template = originalDefinition.clone();
 			template.getKey().setItem(input.getText());
@@ -59,20 +56,22 @@ public class CloneClothingWindow extends AbstractCloneWindow<List<ClothingTempla
 		iw.write();
 	}
 
-	protected void onDoCloneItem(final ClothingTemplate def, final ClothingTemplate newDef, String newName) throws IOException {
+	protected void onDoCloneItem(final ClothingTemplate def, final ClothingTemplate newDef, String newName)
+			throws IOException {
 	}
 
-	private void copy(ClothingTemplate def, ClothingTemplate newDef, String r, final String suffix, File assetDir, String ext)
-			throws IOException {
+	private void copy(ClothingTemplate def, ClothingTemplate newDef, String r, final String suffix, File assetDir,
+			String ext) throws IOException {
 
 		String sourcePath = String.format("%1$s/%2$s/%2$s-%3$s%4$s.%5$s", Icelib.toEnglish(def.getKey().getType()),
 				def.getKey().getItemName(), r, suffix, ext);
 		String targetPath = String.format("%1$s/%2$s/%2$s-%3$s%4$s.%5$s", Icelib.toEnglish(newDef.getKey().getType()),
 				newDef.getKey().getItemName(), r, suffix, ext);
-		
-		
-//		String sourcePath = String.format("Armor/%1$s/%1$s-%2$s%3$s.%4$s", def.getKey().getType(), r, suffix, ext);
-//		String targetPath = String.format("Armor/%1$s/%1$s-%2$s%3$s.%4$s", newDef.getKey().getType(), r, suffix, ext);
+
+		// String sourcePath = String.format("Armor/%1$s/%1$s-%2$s%3$s.%4$s",
+		// def.getKey().getType(), r, suffix, ext);
+		// String targetPath = String.format("Armor/%1$s/%1$s-%2$s%3$s.%4$s",
+		// newDef.getKey().getType(), r, suffix, ext);
 		copy(assetDir, sourcePath, targetPath);
 	}
 }

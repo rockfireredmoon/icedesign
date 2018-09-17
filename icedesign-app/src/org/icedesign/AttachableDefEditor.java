@@ -11,32 +11,32 @@ import org.icelib.Icelib;
 import org.icelib.RGB;
 import org.icescene.ServiceRef;
 import org.icescene.configuration.ColourPalettes;
-import org.iceui.HPosition;
 import org.iceui.IceUI;
-import org.iceui.VPosition;
 import org.iceui.controls.ElementStyle;
-import org.iceui.controls.FancyButton;
-import org.iceui.controls.FancyPersistentWindow;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.SaveType;
-import org.iceui.controls.color.ColorFieldControl;
 
 import com.jme3.font.BitmapFont;
-import com.jme3.input.event.MouseButtonEvent;
+import com.jme3.font.BitmapFont.Align;
+import com.jme3.font.BitmapFont.VAlign;
 
 import icetone.controls.buttons.CheckBox;
+import icetone.controls.buttons.PushButton;
 import icetone.controls.lists.ComboBox;
 import icetone.controls.lists.FloatRangeSpinnerModel;
 import icetone.controls.lists.Spinner;
-import icetone.controls.lists.Table;
+import icetone.controls.table.Table;
+import icetone.controls.table.TableCell;
+import icetone.controls.table.TableRow;
 import icetone.controls.text.Label;
-import icetone.core.Container;
-import icetone.core.ElementManager;
+import icetone.core.BaseScreen;
+import icetone.core.Orientation;
+import icetone.core.StyledContainer;
 import icetone.core.layout.FlowLayout;
-import icetone.core.layout.LUtil;
 import icetone.core.layout.mig.MigLayout;
+import icetone.extras.chooser.ColorFieldControl;
+import icetone.extras.windows.PersistentWindow;
+import icetone.extras.windows.SaveType;
 
-public class AttachableDefEditor extends FancyPersistentWindow {
+public class AttachableDefEditor extends PersistentWindow {
 	private Table particlesTable;
 	private Table attachmentPointsTable;
 
@@ -52,50 +52,38 @@ public class AttachableDefEditor extends FancyPersistentWindow {
 	@ServiceRef
 	private static ColourPalettes colourPalettes;
 
-	public AttachableDefEditor(ElementManager screen, Preferences pref) {
-		super(screen, DesignConfig.COLOUR_MAP_EDITOR, 8, VPosition.BOTTOM, HPosition.CENTER, LUtil.LAYOUT_SIZE,
-				FancyWindow.Size.SMALL, true, SaveType.POSITION_AND_SIZE, pref);
+	public AttachableDefEditor(BaseScreen screen, Preferences pref) {
+		super(screen, DesignConfig.COLOUR_MAP_EDITOR, 8, VAlign.Bottom, Align.Left, null, true,
+				SaveType.POSITION_AND_SIZE, pref);
 
-		setIsResizable(true);
+		setResizable(true);
 
-		content.setLayoutManager(new MigLayout(screen, "wrap 2", "[fill, grow][]", "[][][][][][][][:104:][][:104:][][:104:][]"));
+		content.setLayoutManager(
+				new MigLayout(screen, "wrap 2", "[fill, grow][]", "[][][][][][][][:104:][][:104:][][:104:][]"));
 
 		// Illuminated
 		illuminated = new CheckBox(screen);
-		illuminated.setLabelText("Illuminated");
+		illuminated.setText("Illuminated");
 
 		// Animated
 		animated = new CheckBox(screen);
-		animated.setLabelText("Animated");
+		animated.setText("Animated");
 
 		// Particle
 		particle = new CheckBox(screen);
-		particle.setLabelText("Particle");
+		particle.setText("Particle");
 
 		// Ribbon
-		width = new Spinner<Float>(screen, Orientation.HORIZONTAL, true) {
-			@Override
-			public void onChange(Float value) {
-			}
-		};
+		width = new Spinner<Float>(screen, Orientation.HORIZONTAL, true);
 		width.setSpinnerModel(new FloatRangeSpinnerModel(0.01f, 1000f, 0.1f, 1f));
-		offset = new Spinner<Float>(screen, Orientation.HORIZONTAL, true) {
-			@Override
-			public void onChange(Float value) {
-			}
-		};
+		offset = new Spinner<Float>(screen, Orientation.HORIZONTAL, true);
 		offset.setSpinnerModel(new FloatRangeSpinnerModel(0.01f, 1000f, 0.1f, 1f));
-		ribbon = new CheckBox(screen) {
-
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				super.onButtonMouseLeftUp(evt, toggled);
-				offset.setIsEnabled(getIsChecked());
-				width.setIsEnabled(getIsChecked());
-			}
-
-		};
-		ribbon.setLabelText("Ribbon");
+		ribbon = new CheckBox(screen);
+		ribbon.onChange(evt -> {
+			offset.setEnabled(evt.getNewValue());
+			width.setEnabled(evt.getNewValue());
+		});
+		ribbon.setText("Ribbon");
 
 		// Colours
 		colourTable = new Table(screen);
@@ -111,129 +99,132 @@ public class AttachableDefEditor extends FancyPersistentWindow {
 		attachmentPointsTable.addColumn("Attachment Point");
 
 		// Add
-		FancyButton addColour = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				ColourPalette pal = colourPalettes.get("rainbow");
-				Table.TableRow row = new Table.TableRow(screen, colourTable, pal);
-				addColorRow(pal, Color.WHITE, row);
+		PushButton addColour = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		addColour.onMouseReleased(evt -> {
+			ColourPalette pal = colourPalettes.get("rainbow");
+			TableRow row = new TableRow(screen, colourTable, pal);
+			addColorRow(pal, Color.WHITE, row);
+		});
 		addColour.setText("Add");
 
 		// Remove
-		FancyButton removeColour = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				Table.TableRow row = colourTable.getSelectedRow();
-				if (row != null) {
-					colourTable.removeRow(row);
-				}
+		PushButton removeColour = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		removeColour.onMouseReleased(evt -> {
+			TableRow row = colourTable.getSelectedRow();
+			if (row != null) {
+				colourTable.removeRow(row);
+			}
+		});
 		removeColour.setText("Remove");
 
 		// Save
-		FancyButton save = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				value.setAnimated(animated.getIsChecked());
-				value.setIlluminated(illuminated.getIsChecked());
-				value.setParticle(particle.getIsChecked());
-				value.getColors().clear();
-				if (ribbon.getIsChecked()) {
-					AttachmentRibbon ribbon = new AttachmentRibbon();
-					ribbon.setOffset((Float) offset.getSpinnerModel().getCurrentValue());
-					ribbon.setWidth((Float) width.getSpinnerModel().getCurrentValue());
-					value.setRibbon(ribbon);
-				}
-				// File extF = assets.getExternalAssetFile(colorMapPath);
-				// try {
-				// OutputStream out = new FileOutputStream(extF);
-				// try {
-				// editingColorMap.write(out, false);
-				// } finally {
-				// ColorMapConfiguration.resetCache();
-				// out.close();
-				// }
-				hideWithEffect();
-				// } catch (IOException ioe) {
-				// LOG.log(Level.SEVERE, "Failed to write new colormap.",
-				// ioe);
-				// }
+		PushButton save = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		save.onMouseReleased(evt -> {
+			value.setAnimated(animated.isChecked());
+			value.setIlluminated(illuminated.isChecked());
+			value.setParticle(particle.isChecked());
+			value.getColors().clear();
+			if (ribbon.isChecked()) {
+				AttachmentRibbon ribbon = new AttachmentRibbon();
+				ribbon.setOffset((Float) offset.getSpinnerModel().getCurrentValue());
+				ribbon.setWidth((Float) width.getSpinnerModel().getCurrentValue());
+				value.setRibbon(ribbon);
+			}
+			// File extF = assets.getExternalAssetFile(colorMapPath);
+			// try {
+			// OutputStream out = new FileOutputStream(extF);
+			// try {
+			// editingColorMap.write(out, false);
+			// } finally {
+			// ColorMapConfiguration.resetCache();
+			// out.close();
+			// }
+			hide();
+			// } catch (IOException ioe) {
+			// LOG.log(Level.SEVERE, "Failed to write new colormap.",
+			// ioe);
+			// }});
+		});
 		save.setText("Save");
 
 		// Colour Actions
-		Container colourActions = new Container(screen);
+		StyledContainer colourActions = new StyledContainer(screen);
 		colourActions.setLayoutManager(new MigLayout(screen, "wrap 1", "[grow]", "[][]"));
-		colourActions.addChild(addColour);
-		colourActions.addChild(removeColour);
+		colourActions.addElement(addColour);
+		colourActions.addElement(removeColour);
 
 		// Actions
-		Container actions = new Container(screen);
+		StyledContainer actions = new StyledContainer(screen);
 		actions.setLayoutManager(new FlowLayout(4, BitmapFont.Align.Center));
-		actions.addChild(save);
+		actions.addElement(save);
 
 		// This
-		content.addChild(illuminated, "span 2");
-		content.addChild(animated, "span 2");
-		content.addChild(particle, "span 2");
-		content.addChild(ribbon, "span 2");
+		content.addElement(illuminated, "span 2");
+		content.addElement(animated, "span 2");
+		content.addElement(particle, "span 2");
+		content.addElement(ribbon, "span 2");
 		Label label1 = new Label(screen);
 		label1.setText("Width");
 		width.setLabel(label1);
-		content.addChild(label1, "gapleft 32");
-		content.addChild(width);
+		content.addElement(label1, "gapleft 32");
+		content.addElement(width);
 		label1 = new Label(screen);
 		label1.setText("Offset");
 		offset.setLabel(label1);
-		content.addChild(label1, "gapleft 32");
-		content.addChild(offset);
+		content.addElement(label1, "gapleft 32");
+		content.addElement(offset);
 		label1 = new Label(screen);
 		label1.setText("Colours");
-		ElementStyle.medium(screen, label1);
-		content.addChild(label1, "span 2");
-		content.addChild(colourTable, "growy");
-		content.addChild(colourActions);
+		ElementStyle.medium(label1);
+		content.addElement(label1, "span 2");
+		content.addElement(colourTable, "growy");
+		content.addElement(colourActions);
 		label1 = new Label(screen);
 		label1.setText("Particles");
-		ElementStyle.medium(screen, label1);
-		content.addChild(label1, "span 2");
-		content.addChild(particlesTable, "growy, span 2");
+		ElementStyle.medium(label1);
+		content.addElement(label1, "span 2");
+		content.addElement(particlesTable, "growy, span 2");
 		label1 = new Label(screen);
 		label1.setText("Attachment Points");
-		ElementStyle.medium(screen, label1);
-		content.addChild(label1, "span 2");
-		content.addChild(attachmentPointsTable, "growy, span 2");
-		content.addChild(actions, "span 2, ay 0%");
+		ElementStyle.medium(label1);
+		content.addElement(label1, "span 2");
+		content.addElement(attachmentPointsTable, "growy, span 2");
+		content.addElement(actions, "span 2, ay 0%");
 
 		// Add to screen
-		screen.addElement(this, null, true);
-
-		// Set values
-		showWithEffect();
+		screen.showElement(this);
 	}
 
-	private void addColorRow(final ColourPalette pal, RGB col, Table.TableRow row) {
-		Table.TableCell nameCell = new Table.TableCell(screen, null, col);
+	private void addColorRow(final ColourPalette pal, RGB col, TableRow row) {
+		TableCell nameCell = new TableCell(screen, null, col);
 		ComboBox<String> palette = new ComboBox<>(screen);
 		for (String p : new String[] { "rainbow", "metal", "wood", "accent" }) {
 			palette.addListItem(Icelib.toEnglish(p), p);
 		}
-		palette.setSelectedByValue(pal.getKey(), false);
+		palette.setSelectedByValue(pal.getKey());
 		nameCell.setVAlign(BitmapFont.VAlign.Center);
 		nameCell.setHAlign(BitmapFont.Align.Center);
-		nameCell.addChild(palette);
-		row.addChild(nameCell);
+		nameCell.addElement(palette);
+		row.addElement(nameCell);
 
-		Table.TableCell rgbCell = new Table.TableCell(screen, null, col);
+		TableCell rgbCell = new TableCell(screen, null, col);
 		ColorFieldControl rgb = new ColorFieldControl(screen, IceUI.toRGBA(col));
 		rgbCell.setVAlign(BitmapFont.VAlign.Center);
 		rgbCell.setHAlign(BitmapFont.Align.Center);
-		rgbCell.addChild(rgb);
-		row.addChild(rgbCell);
+		rgbCell.addElement(rgb);
+		row.addElement(rgbCell);
 		colourTable.addRow(row);
 	}
 
@@ -241,27 +232,27 @@ public class AttachableDefEditor extends FancyPersistentWindow {
 		setWindowTitle(String.format("Definition - %s", value.getKey().getName()));
 		this.value = value;
 
-		illuminated.setIsChecked(value.isIlluminated());
-		particle.setIsChecked(value.isParticle());
-		animated.setIsChecked(value.isAnimated());
-		ribbon.setIsChecked(value.getRibbon() != null);
+		illuminated.setChecked(value.isIlluminated());
+		particle.setChecked(value.isParticle());
+		animated.setChecked(value.isAnimated());
+		ribbon.setChecked(value.getRibbon() != null);
 		if (value.getRibbon() != null) {
 			width.getSpinnerModel().setValueFromString(String.valueOf(value.getRibbon().getWidth()));
 			offset.getSpinnerModel().setValueFromString(String.valueOf(value.getRibbon().getOffset()));
 		}
 
-		colourTable. removeAllRows();
+		colourTable.removeAllRows();
 
 		Iterator<ColourPalette> p = value.getPalette().iterator();
 		for (RGB col : value.getColors()) {
 			ColourPalette pal = p.next();
-			Table.TableRow row = new Table.TableRow(screen, colourTable, p);
+			TableRow row = new TableRow(screen, colourTable, p);
 			addColorRow(pal, col, row);
 		}
 
 		// Initial state
-		offset.setIsEnabled(ribbon.getIsChecked());
-		width.setIsEnabled(ribbon.getIsChecked());
+		offset.setEnabled(ribbon.isChecked());
+		width.setEnabled(ribbon.isChecked());
 
 	}
 }

@@ -16,7 +16,6 @@ import org.icelib.Appearance;
 import org.icelib.AttachableTemplate;
 import org.icelib.Icelib;
 import org.icelib.Persona;
-import org.icelib.UndoManager;
 import org.icescene.IcemoonAppState;
 import org.icescene.IcesceneApp;
 import org.icescene.assets.Assets;
@@ -26,38 +25,37 @@ import org.icescene.controls.AnimationRequest;
 import org.icescene.entities.AbstractCreatureEntity;
 import org.icescene.entities.EntityLoader;
 import org.icescene.props.EntityFactory;
-import org.iceui.controls.FancyButton;
-import org.iceui.controls.FancyDialogBox;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.UIUtil;
-import org.iceui.controls.XScreen;
-import org.iceui.controls.ZMenu;
+import org.iceui.controls.ElementStyle;
 
 import com.jme3.input.event.MouseButtonEvent;
 import com.jme3.math.Vector2f;
 
 import icemoon.iceloader.ServerAssetManager;
-import icetone.core.Container;
-import icetone.core.Element.ZPriority;
+import icetone.controls.buttons.PushButton;
+import icetone.controls.menuing.Menu;
+import icetone.core.BaseScreen;
+import icetone.core.StyledContainer;
+import icetone.core.ZPriority;
+import icetone.core.layout.ScreenLayoutConstraints;
 import icetone.core.layout.mig.MigLayout;
+import icetone.core.undo.UndoManager;
+import icetone.extras.windows.DialogBox;
 
-public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
+public class MenuAppState extends IcemoonAppState<IcemoonAppState<?>> {
 	public enum ItemMenuActions {
 		NEW_ITEM, DELETE_ITEM, EDIT_ITEM, CLONE_ITEM
 	}
 
 	private static final Logger LOG = Logger.getLogger(MenuAppState.class.getName());
-	private Container layer;
+	private StyledContainer layer;
 	private final EntityLoader loader;
-	private boolean cloning;
-	private FancyButton tweak;
-	private FancyButton options;
-	private FancyButton exit;
+	private PushButton tweak;
+	private PushButton options;
+	private PushButton exit;
 	private final EntityFactory propFactory;
 	private final Persona persona;
 	private final UndoManager undoManager;
-	private FancyButton items;
-	private EditItemWindow itemTextureEditorWindow;
+	private PushButton items;
 
 	public MenuAppState(UndoManager undoManager, EntityLoader loader, EntityFactory propFactory, Preferences prefs,
 			Persona persona) {
@@ -71,62 +69,63 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 	@Override
 	protected void postInitialize() {
 
-		layer = new Container(screen);
+		layer = new StyledContainer(screen);
 		layer.setLayoutManager(new MigLayout(screen, "fill", "push[][][][]push", "[]push"));
 
 		// Terrain
-		tweak = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				toggleTweak();
+		tweak = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		tweak.onMouseReleased(evt -> toggleTweak());
 		tweak.setText("Tweak");
 		tweak.setToolTipText("Open Creature Tweak window");
-		layer.addChild(tweak);
+		layer.addElement(tweak);
 
 		// Terrain
-		items = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				ZMenu menu = createItemsMenu();
-				menu.showMenu(null, getAbsoluteX(), getAbsoluteY() - menu.getHeight());
+		items = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		items.onMouseReleased(evt -> {
+			createItemsMenu().showMenu(evt.getElement());
+		});
 		items.setText("Items");
-		items.setIsEnabled(false);
+		items.setEnabled(false);
 		items.setToolTipText("WILL PROVIDE DIRECT ACCESS TO ITEMS - NOT COMPLETE");
-		layer.addChild(items);
+		layer.addElement(items);
 
 		// Options
-		options = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				toggleOptions();
+		options = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		options.onMouseReleased(evt -> toggleOptions());
 		options.setText("Options");
 		options.setToolTipText("Show application options");
-		layer.addChild(options);
+		layer.addElement(options);
 
 		// Exit
-		exit = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-				exitApp();
+		exit = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		exit.onMouseReleased(evt -> exitApp());
 		exit.setText("Exit");
 		exit.setToolTipText("Exit Icedesign");
-		layer.addChild(exit);
+		layer.addElement(exit);
 
 		//
-		app.getLayers(ZPriority.MENU).addChild(layer);
+		app.getLayers(ZPriority.MENU).addElement(layer);
 	}
 
 	@Override
 	protected void onCleanup() {
-		app.getLayers(ZPriority.MENU).removeChild(layer);
+		app.getLayers(ZPriority.MENU).removeElement(layer);
 	}
 
 	private void toggleOptions() {
@@ -139,7 +138,7 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 	}
 
 	public void edit(final AttachableTemplate def) {
-		EditItemWindow itemTextureEditorWindow = ((XScreen) screen).getElementByClass(EditItemWindow.class);
+		EditItemWindow itemTextureEditorWindow = ((BaseScreen) screen).getElementByClass(EditItemWindow.class);
 		if (itemTextureEditorWindow == null) {
 			itemTextureEditorWindow = new EditItemWindow(screen, ((IcesceneApp) app).getAssets(), prefs) {
 				@Override
@@ -168,7 +167,7 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 					}
 				}
 			};
-			screen.addElement(itemTextureEditorWindow, null, true);
+			screen.showElement(itemTextureEditorWindow);
 		}
 		itemTextureEditorWindow.setValue(def);
 	}
@@ -178,21 +177,11 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 		if (cas == null) {
 			app.getStateManager().attach(new CreatureEditorAppState(undoManager, prefs, propFactory, loader,
 					MenuAppState.this.app.getAssets(), persona) {
-				private IcesceneApp.AppListener appListener;
 				private CreatureEditorAppState.Listener previewListener;
 
 				@Override
 				public void postInitialize() {
 					super.postInitialize();
-
-					UIUtil.center(screen, window);
-					// Watch for app getting resized, center the
-					// window
-					this.app.addListener(appListener = new IcesceneApp.AppListener() {
-						public void reshape(int w, int h) {
-							UIUtil.center(screen, window);
-						}
-					});
 
 					final PreviewAppState previewAppState = app.getStateManager().getState(PreviewAppState.class);
 					addListener(previewListener = new CreatureEditorAppState.Listener() {
@@ -263,7 +252,6 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 				protected void onCleanup() {
 					super.onCleanup();
 					removeListener(previewListener);
-					this.app.removeListener(appListener);
 				}
 			});
 		} else {
@@ -272,10 +260,14 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 	}
 
 	private void delete(final AttachableTemplate def) {
-		final FancyDialogBox dialog = new FancyDialogBox(screen, new Vector2f(15, 15), FancyWindow.Size.LARGE, true) {
+		final DialogBox dialog = new DialogBox(screen, new Vector2f(15, 15), true) {
+			{
+				setStyleClass("large");
+			}
+
 			@Override
 			public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-				hideWindow();
+				hide();
 			}
 
 			@Override
@@ -307,69 +299,66 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 
 				error("NOT IMPLEMENTED");
 				((ServerAssetManager) app.getAssetManager()).clearCache();
-				hideWindow();
+				hide();
 			}
 		};
 		dialog.setDestroyOnHide(true);
-		dialog.getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+		ElementStyle.warningColor(dialog.getDragBar());
 		dialog.setWindowTitle(String.format("Delete %s", def.getKey().getName()));
 		dialog.setButtonOkText("Delete");
 		dialog.setMsg(String.format(
 				"This will remove the item '%s' from your local workspace. Are you sure you wish to do this, it cannot be recovered once deleted?",
 				def.getKey().getName()));
-		dialog.setIsResizable(false);
-		dialog.setIsMovable(false);
-		dialog.sizeToContent();
-		UIUtil.center(screen, dialog);
-		screen.addElement(dialog, null, true);
-		dialog.showAsModal(true);
+		dialog.setResizable(false);
+		dialog.setMovable(false);
+		dialog.setModal(true);
+		screen.showElement(dialog, ScreenLayoutConstraints.center);
 	}
 
-	private ZMenu createItemsMenu() {
-		ZMenu menu = new ZMenu(screen) {
-			@Override
-			public void onItemSelected(ZMenu.ZMenuItem item) {
-				if (item.getValue().equals(ItemMenuActions.DELETE_ITEM)) {
-					new AbstractItemSelectWindow(screen, "Delete Item", "Delete") {
-						@Override
-						protected boolean match(AttachableTemplate def) {
-							return super.match(def) && ((IcesceneApp) app).getAssets()
-									.getExternalAssetFile(String.format("Items/%s", def.getKey().getName())).exists();
-						}
+	private Menu createItemsMenu() {
+		Menu<ItemMenuActions> menu = new Menu<>(screen);
+		menu.onChanged((evt) -> {
 
-						@Override
-						protected void doOnSelect(List<AttachableTemplate> def) {
-							for (AttachableTemplate t : def)
-								delete(t);
-						}
-					};
-				} else if (item.getValue().equals(ItemMenuActions.EDIT_ITEM)) {
-					new AbstractItemSelectWindow(screen, "Edit Item", "Edit") {
+			if (evt.getNewValue().getValue().equals(ItemMenuActions.DELETE_ITEM)) {
+				new AbstractItemSelectWindow(screen, "Delete Item", "Delete") {
+					@Override
+					protected boolean match(AttachableTemplate def) {
+						return super.match(def) && ((IcesceneApp) app).getAssets()
+								.getExternalAssetFile(String.format("Items/%s", def.getKey().getName())).exists();
+					}
 
-						@Override
-						protected boolean match(AttachableTemplate def) {
-							return super.match(def) && ((IcesceneApp) app).getAssets()
-									.getExternalAssetFile(String.format("Items/%s", def.getKey().getName())).exists();
-						}
+					@Override
+					protected void doOnSelect(List<AttachableTemplate> def) {
+						for (AttachableTemplate t : def)
+							delete(t);
+					}
+				};
+			} else if (evt.getNewValue().getValue().equals(ItemMenuActions.EDIT_ITEM)) {
+				new AbstractItemSelectWindow(screen, "Edit Item", "Edit") {
 
-						@Override
-						protected void doOnSelect(List<AttachableTemplate> def) {
-							edit(def.get(0));
-						}
-					};
-				} else if (item.getValue().equals(ItemMenuActions.CLONE_ITEM)) {
-					new AbstractItemSelectWindow(screen, "Clone Item", "Clone") {
+					@Override
+					protected boolean match(AttachableTemplate def) {
+						return super.match(def) && ((IcesceneApp) app).getAssets()
+								.getExternalAssetFile(String.format("Items/%s", def.getKey().getName())).exists();
+					}
 
-						@Override
-						protected void doOnSelect(List<AttachableTemplate> def) {
-							new CloneItemWindow(screen).setItem(def.get(0));
-						}
-					};
-				} else if (item.getValue().equals(ItemMenuActions.NEW_ITEM)) {
-					new NewItemWindow(screen);
-				}
+					@Override
+					protected void doOnSelect(List<AttachableTemplate> def) {
+						edit(def.get(0));
+					}
+				};
+			} else if (evt.getNewValue().getValue().equals(ItemMenuActions.CLONE_ITEM)) {
+				new AbstractItemSelectWindow(screen, "Clone Item", "Clone") {
+
+					@Override
+					protected void doOnSelect(List<AttachableTemplate> def) {
+						new CloneItemWindow(screen).setItem(def.get(0));
+					}
+				};
+			} else if (evt.getNewValue().getValue().equals(ItemMenuActions.NEW_ITEM)) {
+				new NewItemWindow(screen);
 			}
-		};
+		});
 		for (ItemMenuActions n : ItemMenuActions.values()) {
 			menu.addMenuItem(Icelib.toEnglish(n), n);
 		}
@@ -380,10 +369,14 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 	}
 
 	private void exitApp() {
-		final FancyDialogBox dialog = new FancyDialogBox(screen, new Vector2f(15, 15), FancyWindow.Size.LARGE, true) {
+		final DialogBox dialog = new DialogBox(screen, new Vector2f(15, 15), true) {
+			{
+				setStyleClass("large");
+			}
+
 			@Override
 			public void onButtonCancelPressed(MouseButtonEvent evt, boolean toggled) {
-				hideWindow();
+				hide();
 			}
 
 			@Override
@@ -392,16 +385,13 @@ public class MenuAppState extends IcemoonAppState<IcemoonAppState> {
 			}
 		};
 		dialog.setDestroyOnHide(true);
-		dialog.getDragBar().setFontColor(screen.getStyle("Common").getColorRGBA("warningColor"));
+		ElementStyle.warningColor(dialog.getDragBar());
 		dialog.setWindowTitle("Confirm Exit");
 		dialog.setButtonOkText("Exit");
 		dialog.setMsg("Are you sure you wish to exit? Make sure you have saved!");
-
-		dialog.setIsResizable(false);
-		dialog.setIsMovable(false);
-		dialog.sizeToContent();
-		UIUtil.center(screen, dialog);
-		screen.addElement(dialog, null, true);
-		dialog.showAsModal(true);
+		dialog.setResizable(false);
+		dialog.setMovable(false);
+		dialog.setModal(true);
+		screen.showElement(dialog, ScreenLayoutConstraints.center);
 	}
 }

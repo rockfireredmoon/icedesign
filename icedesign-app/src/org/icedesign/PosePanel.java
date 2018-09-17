@@ -9,20 +9,20 @@ import org.icescene.HUDMessageAppState;
 import org.icescene.animation.AnimationOption;
 import org.icescene.animation.AnimationSequence;
 import org.iceui.controls.ElementStyle;
-import org.iceui.controls.FancyButton;
 
-import com.jme3.input.event.MouseButtonEvent;
-
-import icetone.controls.buttons.ButtonAdapter;
 import icetone.controls.buttons.CheckBox;
+import icetone.controls.buttons.PushButton;
 import icetone.controls.lists.ComboBox;
 import icetone.controls.lists.FloatRangeSliderModel;
 import icetone.controls.lists.Slider;
 import icetone.controls.menuing.Menu;
 import icetone.controls.text.Label;
-import icetone.core.Container;
+import icetone.core.BaseElement;
+import icetone.core.BaseScreen;
+import icetone.core.Orientation;
+import icetone.core.StyledContainer;
 import icetone.core.Element;
-import icetone.core.ElementManager;
+import icetone.core.ToolKit;
 import icetone.core.layout.mig.MigLayout;
 
 public class PosePanel extends Element {
@@ -31,18 +31,18 @@ public class PosePanel extends Element {
 	private boolean adjusting;
 	private final ComboBox<AnimationOption> preset;
 	private AnimationOption customSequence;
-	private final ButtonAdapter startPose;
-	private final ButtonAdapter stopPose;
+	private final PushButton startPose;
+	private final PushButton stopPose;
 	private final Slider<Float> speed;
 	private final CheckBox loop;
-	private final FancyButton edit;
+	private final PushButton edit;
 	private PoseEditWindow poseEditWindow;
 	private Collection<String> animations;
-	private final Label speedLabel;
+	private Label speedLabel;
 	private AnimationOption editingPreset;
 	private boolean active;
 
-	public PosePanel(ElementManager screen) {
+	public PosePanel(BaseScreen screen) {
 		super(screen);
 		setAsContainerOnly();
 		setLayoutManager(new MigLayout(screen, "wrap 1, fill", "[grow]", "[][][]push"));
@@ -51,118 +51,112 @@ public class PosePanel extends Element {
 		recreateCustomSequence();
 
 		// Preset
-		preset = new ComboBox<AnimationOption>(screen) {
-			@Override
-			public void onChange(int selectedIndex, AnimationOption value) {
-				if (!adjusting) {
-					if (poseEditWindow != null) {
-						editingPreset = (AnimationOption) value;
-						// poseEditWindow.setSequence((AnimationOption) value);
-					}
-					if (active) {
-						AnimationOption s = (AnimationOption) value;
-						// if (s.getAnims() != null && !s.getAnims().isEmpty())
-						// {
-						// onStartPose();
-						// }
-						if (s != null) {
-							onStartPose();
-						}
-					}
-					setAvailable();
+		preset = new ComboBox<AnimationOption>(screen);
+		preset.onChange(evt -> {
+			if (!adjusting) {
+				if (poseEditWindow != null) {
+					editingPreset = evt.getNewValue();
+					// poseEditWindow.setSequence((AnimationOption) value);
 				}
+				if (active) {
+					AnimationOption s = evt.getNewValue();
+					// if (s.getAnims() != null && !s.getAnims().isEmpty())
+					// {
+					// onStartPose();
+					// }
+					if (s != null) {
+						onStartPose();
+					}
+				}
+				setAvailable();
 			}
-		};
+		});
 		preset.setToolTipText(
 				"Bipeds have a set of pre-defined sequences. For all other creatures, or to create your own sequence, choose 'Custom'");
 
 		// Preset Panel
-		Element presetPanel = new Element(screen);
+		BaseElement presetPanel = new BaseElement(screen);
 		presetPanel.setLayoutManager(new MigLayout(screen, "fill", "[grow][shrink 0][shrink 0][shrink 0]"));
-		presetPanel.addChild(preset, "growx");
+		presetPanel.addElement(preset, "growx");
 
 		// Start
-		startPose = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				super.onButtonMouseLeftDown(evt, toggle);
-				onStartPose();
+		startPose = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		startPose.onMouseReleased(evt -> onStartPose());
 		startPose.setText("Start");
-		presetPanel.addChild(startPose);
+		presetPanel.addElement(startPose);
 
 		// Stop
-		stopPose = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				super.onButtonMouseLeftDown(evt, toggle);
-				onStopPose();
+		stopPose = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		stopPose.onMouseReleased(evt -> onStopPose());
 		stopPose.setText("Stop");
-		presetPanel.addChild(stopPose);
+		presetPanel.addElement(stopPose);
 
 		// Edit
-		edit = new FancyButton(screen) {
-			@Override
-			public void onButtonMouseLeftDown(MouseButtonEvent evt, boolean toggle) {
-				HUDMessageAppState hud = app.getStateManager().getState(HUDMessageAppState.class);
-				hud.message(Level.SEVERE,
-						"This option is currently unavailable as the result of recent animation system rewrite. It will return!");
-				// editingPreset = getPreset();
-				// if (poseEditWindow == null) {
-				// poseEditWindow = new PoseEditWindow(screen) {
-				// @Override
-				// protected void onSave(AnimationSequence seq) {
-				// // editingPreset.populate(seq);
-				// }
-				// };
-				// } else {
-				// if (!poseEditWindow.getIsVisible()) {
-				// poseEditWindow.showWithEffect();
-				// }
-				// }
-				// poseEditWindow.setAnimations(animations);
-				// poseEditWindow.setSequence(editingPreset);
+		edit = new PushButton(screen) {
+			{
+				setStyleClass("fancy");
 			}
 		};
+		edit.onMouseReleased(evt -> {
+
+			HUDMessageAppState hud = ToolKit.get().getApplication().getStateManager().getState(HUDMessageAppState.class);
+			hud.message(Level.SEVERE,
+					"This option is currently unavailable as the result of recent animation system rewrite. It will return!");
+			// editingPreset = getPreset();
+			// if (poseEditWindow == null) {
+			// poseEditWindow = new PoseEditWindow(screen) {
+			// @Override
+			// protected void onSave(AnimationSequence seq) {
+			// // editingPreset.populate(seq);
+			// }
+			// };
+			// } else {
+			// if (!poseEditWindow.getIsVisible()) {
+			// poseEditWindow.showWithEffect();
+			// }
+			// }
+			// poseEditWindow.setAnimations(animations);
+			// poseEditWindow.setSequence(editingPreset);
+		});
 		edit.setText("Edit");
-		presetPanel.addChild(edit);
+		presetPanel.addElement(edit);
 
 		// Speed
-		speed = new Slider<Float>(screen, Slider.Orientation.HORIZONTAL, true) {
-			@Override
-			public void onChange(Float value) {
-				speedLabel.setText(String.format("%2.1f", value));
-				onSpeedChange(((Float) value).floatValue());
-			}
-		};
+		speed = new Slider<Float>(screen, Orientation.HORIZONTAL);
+		speed.onChanged(evt -> {
+			speedLabel.setText(String.format("%2.1f", evt.getNewValue()));
+			onSpeedChange(evt.getNewValue());
+		});
 		speed.setSliderModel(new FloatRangeSliderModel(0, 10, 1, 0.1f));
 		speed.setLockToStep(true);
 
 		// Loop
-		loop = new CheckBox(screen) {
-			@Override
-			public void onButtonMouseLeftUp(MouseButtonEvent evt, boolean toggled) {
-			}
-		};
-		loop.setLabelText("Force Loop");
+		loop = new CheckBox(screen);
+		loop.setText("Force Loop");
 
 		// Options panel
-		Container opts = new Container(screen);
+		StyledContainer opts = new StyledContainer(screen);
 		opts.setLayoutManager(new MigLayout(screen, "", "[shrink 0][fill, grow][shrink 0]48[shrink 0]", "[]"));
-		opts.addChild(new Label("Speed", screen));
-		opts.addChild(speed);
-		opts.addChild(speedLabel = new Label(String.format("%2.1f", speed.getSliderModel().getValue().floatValue()), screen),
+		opts.addElement(new Label("Speed", screen));
+		opts.addElement(speed);
+		opts.addElement(
+				speedLabel = new Label(String.format("%2.1f", speed.getSliderModel().getValue().floatValue()), screen),
 				"growx");
-		ElementStyle.normal(screen, speedLabel, true, false);
-		opts.addChild(loop);
+		ElementStyle.normal(speedLabel, true, false);
+		opts.addElement(loop);
 
 		// This
-		addChild(ElementStyle.medium(screen, new Label("Preset", screen)));
-		addChild(presetPanel, "growx");
-		addChild(opts, "growx");
+		addElement(ElementStyle.medium(new Label("Preset", screen)));
+		addElement(presetPanel, "growx");
+		addElement(opts, "growx");
 
 		//
 		setAvailable();
@@ -170,18 +164,18 @@ public class PosePanel extends Element {
 	}
 
 	public void setSelectedPreset(AnimationOption seq) {
-		preset.setSelectedByValue(seq, false);
+		preset.runAdjusting(() -> preset.setSelectedByValue(seq));
 	}
 
 	// public void playPreset(AnimationSequence seq) {
 	public void playPreset(AnimationOption seq) {
 		LOG.info(String.format("Playing preset %s", seq));
-		preset.setSelectedByValue(seq, true);
+		preset.setSelectedByValue(seq);
 		onStartPose();
 	}
 
 	public boolean isForceLoop() {
-		return loop.getIsChecked();
+		return loop.isChecked();
 	}
 
 	public float getSpeed() {
@@ -201,7 +195,7 @@ public class PosePanel extends Element {
 	}
 
 	public AnimationOption getPreset() {
-		final Menu menu = preset.getMenu();
+		final Menu<?> menu = preset.getMenu();
 		if (menu != null && preset.getSelectIndex() < menu.getMenuItems().size()) {
 			return (AnimationOption) preset.getSelectedListItem().getValue();
 		}
@@ -220,11 +214,10 @@ public class PosePanel extends Element {
 			preset.removeAllListItems();
 			if (sequences != null) {
 				for (AnimationOption s : Icelib.sort(sequences)) {
-					preset.addListItem(Icelib.camelToEnglish(s.getKey()), s, false, false);
+					preset.addListItem(Icelib.camelToEnglish(s.getKey()), s);
 				}
 			}
 			preset.addListItem("Custom", customSequence);
-			preset.pack(false);
 			preset.getMenu().setIgnoreGlobalAlpha(true);
 			preset.getMenu().setGlobalAlpha(1f);
 			recreateCustomSequence();
@@ -249,10 +242,10 @@ public class PosePanel extends Element {
 	}
 
 	private void setAvailable() {
-		edit.setIsEnabled(preset.getSelectIndex() > -1);
-		startPose.setIsEnabled(!active && preset.getSelectIndex() > -1);// &&
+		edit.setEnabled(preset.getSelectIndex() > -1);
+		startPose.setEnabled(!active && preset.getSelectIndex() > -1);// &&
 																		// !getPreset().getAnims().isEmpty());
-		stopPose.setIsEnabled(active);
+		stopPose.setEnabled(active);
 	}
 
 	private void recreateCustomSequence() {

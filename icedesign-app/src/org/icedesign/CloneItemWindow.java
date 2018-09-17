@@ -12,7 +12,8 @@ import org.icescene.HUDMessageAppState;
 import org.icescene.ServiceRef;
 import org.icescene.configuration.attachments.AttachableTemplates;
 
-import icetone.core.ElementManager;
+import icetone.core.BaseScreen;
+import icetone.core.ToolKit;
 
 public class CloneItemWindow extends NewItemWindow {
 
@@ -20,7 +21,7 @@ public class CloneItemWindow extends NewItemWindow {
 	@ServiceRef
 	protected static AttachableTemplates attachableTemplatesConfiguration;
 
-	public CloneItemWindow(ElementManager screen) {
+	public CloneItemWindow(BaseScreen screen) {
 		super(screen);
 		setWindowTitle("Clone Item");
 		setButtonOkText("Clone");
@@ -30,11 +31,11 @@ public class CloneItemWindow extends NewItemWindow {
 		AttachableTemplate def = attachableDef.get(key);
 		AttachableTemplate templ = def.getDelegate();
 
-		type.setSelectedByValue(key.getType(), true);
-		type.setIsEnabled(false);
+		type.setSelectedByValue(key.getType());
+		type.setEnabled(false);
 
-		template.setSelectedByValue(templ, false);
-		template.setIsEnabled(false);
+		template.runAdjusting(() -> template.setSelectedByValue(templ));
+		template.setEnabled(false);
 
 		name.setText(key.getItem());
 		item.setText(key.getTemplate());
@@ -72,9 +73,10 @@ public class CloneItemWindow extends NewItemWindow {
 		copy(newDef, "", assetsDir, "png");
 		copy(newDef, "", assetsDir, "mesh.xml");
 
-		HUDMessageAppState hud = app.getStateManager().getState(HUDMessageAppState.class);
+		HUDMessageAppState hud = ToolKit.get().getApplication().getStateManager().getState(HUDMessageAppState.class);
 		if (hud != null) {
-			hud.message(Level.INFO, String.format("Cloned %s to %s", itemDef.getKey().getName(), newDef.getKey().getName()));
+			hud.message(Level.INFO,
+					String.format("Cloned %s to %s", itemDef.getKey().getName(), newDef.getKey().getName()));
 		}
 
 	}

@@ -6,3 +6,4 @@
 /liblwjgl64.so
 /libopenal64.so
 /logging.properties
+*.so

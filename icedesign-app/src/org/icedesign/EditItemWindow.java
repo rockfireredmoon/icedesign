@@ -6,28 +6,27 @@ import java.util.prefs.Preferences;
 import org.icelib.AttachableTemplate;
 import org.icelib.Icelib;
 import org.icescene.assets.Assets;
-import org.iceui.HPosition;
-import org.iceui.VPosition;
-import org.iceui.controls.FancyPersistentWindow;
-import org.iceui.controls.FancyWindow;
-import org.iceui.controls.SaveType;
 
-import com.jme3.math.Vector2f;
+import com.jme3.font.BitmapFont.Align;
+import com.jme3.font.BitmapFont.VAlign;
 
-import icetone.core.Element;
-import icetone.core.ElementManager;
+import icetone.core.BaseElement;
+import icetone.core.BaseScreen;
+import icetone.core.Size;
 import icetone.core.layout.FillLayout;
+import icetone.extras.windows.PersistentWindow;
+import icetone.extras.windows.SaveType;
 
-public class EditItemWindow extends FancyPersistentWindow {
+public class EditItemWindow extends PersistentWindow {
 
 	private ItemEditorPanel itemTextureEditor;
 
-	public EditItemWindow(ElementManager screen, Assets assets, Preferences prefs) {
-		super(screen, DesignConfig.ATTACHMENT_FILES_EDITOR, 8, VPosition.MIDDLE, HPosition.RIGHT, new Vector2f(320, 300),
-				FancyWindow.Size.SMALL, true, SaveType.POSITION_AND_SIZE, prefs);
+	public EditItemWindow(BaseScreen screen, Assets assets, Preferences prefs) {
+		super(screen, DesignConfig.ATTACHMENT_FILES_EDITOR, 8, VAlign.Center, Align.Right, new Size(320, 300), true,
+				SaveType.POSITION_AND_SIZE, prefs);
 
-		setIsResizable(true);
-		final Element windowContent = getContentArea();
+		setResizable(true);
+		final BaseElement windowContent = getContentArea();
 		windowContent.setLayoutManager(new FillLayout());
 		itemTextureEditor = new ItemEditorPanel(assets, screen, prefs) {
 			@Override
@@ -35,7 +34,7 @@ public class EditItemWindow extends FancyPersistentWindow {
 				onTextureFileUpdated();
 			}
 		};
-		windowContent.addChild(itemTextureEditor);
+		windowContent.addElement(itemTextureEditor);
 	}
 
 	protected void onTextureFileUpdated() {
@@ -44,8 +43,8 @@ public class EditItemWindow extends FancyPersistentWindow {
 	public void setValue(AttachableTemplate def) {
 		setWindowTitle(String.format("Item - %s", Icelib.getBaseFilename(def.getKey().getName())));
 		itemTextureEditor.setValue(def);
-		if (!getIsVisible()) {
-			showWithEffect();
+		if (!isVisible()) {
+			show();
 		}
 	}
 }
